@@ -29,7 +29,7 @@ def BuildLibYara( target, source, env ):
     os.chdir( os.path.join( Dir("#.").abspath, env[ 'BUILD_DIR' ], 'lib', 'yara' ) )
 
     run( './bootstrap.sh' )
-    run( './configure --without-crypto' )
+    run( './configure --with-crypto' )
     run( 'make' )
 
     shutil.copyfile( os.path.join( Dir("#.").abspath, env[ 'BUILD_DIR' ], 'lib', 'yara', 'libyara', '.libs', 'libyara.a' ),
