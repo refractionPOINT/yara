@@ -28,8 +28,14 @@ def BuildLibYara( target, source, env ):
 
     os.chdir( os.path.join( Dir("#.").abspath, env[ 'BUILD_DIR' ], 'lib', 'yara' ) )
 
+    target_host = env.get( 'crossCompileTo', None )
+    if target_host is None:
+        target_host = ''
+    else:
+        target_host = ' --host ' + target_host
+
     run( './bootstrap.sh' )
-    run( './configure --with-crypto' )
+    run( './configure --without-crypto%s' % target_host )
     run( 'make' )
 
     shutil.copyfile( os.path.join( Dir("#.").abspath, env[ 'BUILD_DIR' ], 'lib', 'yara', 'libyara', '.libs', 'libyara.a' ),
@@ -68,3 +74,4 @@ class LibYara( profiles.Component ):
 compmap[ "libyara" ] = LibYara( libyara )
 
 # EOF
+
