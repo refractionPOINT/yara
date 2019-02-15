@@ -1,67 +1,110 @@
 /*
 Copyright (c) 2013. The YARA Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-   http://www.apache.org/licenses/LICENSE-2.0
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+
+#if defined(JEMALLOC)
+#include <jemalloc/jemalloc.h>
+#endif
 
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
 
+#include <yara/globals.h>
 #include <yara/error.h>
 #include <yara/re.h>
 #include <yara/modules.h>
 #include <yara/mem.h>
+#include <yara/threading.h>
 
-#ifdef HAVE_LIBCRYPTO
-#include <openssl/crypto.h>
-#endif
+#include "crypto.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__CYGWIN__)
+#if !defined(_MSC_VER) || (defined(_MSC_VER) && (_MSC_VER < 1900))
 #define snprintf _snprintf
 #endif
-
-
-#ifdef _WIN32
-#include <windows.h>
-DWORD tidx_key;
-DWORD recovery_state_key;
-#else
-#include <pthread.h>
-pthread_key_t tidx_key;
-pthread_key_t recovery_state_key;
 #endif
+
+
+YR_THREAD_STORAGE_KEY yr_tidx_key;
+YR_THREAD_STORAGE_KEY yr_recovery_state_key;
+
 
 static int init_count = 0;
 
-char lowercase[256];
-char altercase[256];
-
-#ifdef HAVE_LIBCRYPTO
-pthread_mutex_t *locks;
-
-unsigned long pthreads_thread_id(void)
+static struct yr_config_var
 {
-  return (unsigned long) pthread_self();
+  union
+  {
+    size_t   sz;
+    uint32_t ui32;
+    uint64_t ui64;
+    char*    str;
+  };
+
+} yr_cfgs[YR_CONFIG_LAST];
+
+
+// Global variables. See globals.h for their descriptions.
+
+int yr_canary;
+
+char yr_lowercase[256];
+char yr_altercase[256];
+
+
+#if defined(HAVE_LIBCRYPTO) && OPENSSL_VERSION_NUMBER < 0x10100000L
+
+// The OpenSSL library before version 1.1 requires some locks in order
+// to be thread-safe. These locks are initialized in yr_initialize
+// function.
+
+static YR_MUTEX *openssl_locks;
+
+
+static unsigned long _thread_id(void)
+{
+  return (unsigned long) yr_current_thread_id();
 }
 
-void locking_function(int mode, int n, const char *file, int line)
+
+static void _locking_function(
+    int mode,
+    int n,
+    const char *file,
+    int line)
 {
   if (mode & CRYPTO_LOCK)
-    pthread_mutex_lock(&locks[n]);
+    yr_mutex_lock(&openssl_locks[n]);
   else
-    pthread_mutex_unlock(&locks[n]);
+    yr_mutex_unlock(&openssl_locks[n]);
 }
+
 #endif
 
 //
@@ -73,49 +116,71 @@ void locking_function(int mode, int n, const char *file, int line)
 
 YR_API int yr_initialize(void)
 {
+  uint32_t def_stack_size = DEFAULT_STACK_SIZE;
+  uint32_t def_max_strings_per_rule = DEFAULT_MAX_STRINGS_PER_RULE;
+  uint32_t def_max_match_data = DEFAULT_MAX_MATCH_DATA;
+
   int i;
 
-  if (init_count > 0)
-  {
-    init_count++;
+  init_count++;
+
+  if (init_count > 1)
     return ERROR_SUCCESS;
-  }
+
+  srand((unsigned) time(NULL));
+
+  yr_canary = rand();
 
   for (i = 0; i < 256; i++)
   {
     if (i >= 'a' && i <= 'z')
-      altercase[i] = i - 32;
+      yr_altercase[i] = i - 32;
     else if (i >= 'A' && i <= 'Z')
-      altercase[i] = i + 32;
+      yr_altercase[i] = i + 32;
     else
-      altercase[i] = i;
+      yr_altercase[i] = i;
 
-    lowercase[i] = tolower(i);
+    yr_lowercase[i] = tolower(i);
   }
 
   FAIL_ON_ERROR(yr_heap_alloc());
+  FAIL_ON_ERROR(yr_thread_storage_create(&yr_tidx_key));
+  FAIL_ON_ERROR(yr_thread_storage_create(&yr_recovery_state_key));
 
-  #ifdef _WIN32
-  tidx_key = TlsAlloc();
-  recovery_state_key = TlsAlloc();
-  #else
-  pthread_key_create(&tidx_key, NULL);
-  pthread_key_create(&recovery_state_key, NULL);
-  #endif
+  #if defined HAVE_LIBCRYPTO && OPENSSL_VERSION_NUMBER < 0x10100000L
 
-  #ifdef HAVE_LIBCRYPTO
-  locks = OPENSSL_malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
+  openssl_locks = (YR_MUTEX*) OPENSSL_malloc(
+      CRYPTO_num_locks() * sizeof(YR_MUTEX));
+
   for (i = 0; i < CRYPTO_num_locks(); i++)
-    pthread_mutex_init(&locks[i], NULL);
+    yr_mutex_create(&openssl_locks[i]);
 
-  CRYPTO_set_id_callback((unsigned long (*)())pthreads_thread_id);
-  CRYPTO_set_locking_callback(locking_function);
+  CRYPTO_set_id_callback(_thread_id);
+  CRYPTO_set_locking_callback(_locking_function);
+
+  #elif defined(HAVE_WINCRYPT_H)
+
+  if (!CryptAcquireContext(&yr_cryptprov, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT)) {
+    return ERROR_INTERNAL_FATAL_ERROR;
+  }
+
+  #elif defined(HAVE_COMMON_CRYPTO)
+
+  ...
+
   #endif
 
-  FAIL_ON_ERROR(yr_re_initialize());
   FAIL_ON_ERROR(yr_modules_initialize());
 
-  init_count++;
+  // Initialize default configuration options
+  FAIL_ON_ERROR(yr_set_configuration(
+      YR_CONFIG_STACK_SIZE, &def_stack_size));
+
+  FAIL_ON_ERROR(yr_set_configuration(
+      YR_CONFIG_MAX_STRINGS_PER_RULE, &def_max_strings_per_rule));
+
+  FAIL_ON_ERROR(yr_set_configuration(
+      YR_CONFIG_MAX_MATCH_DATA, &def_max_match_data));
 
   return ERROR_SUCCESS;
 }
@@ -124,57 +189,67 @@ YR_API int yr_initialize(void)
 //
 // yr_finalize_thread
 //
-// Should be called by ALL threads using libyara before exiting.
-//
+// This function is deprecated, it's maintained only for backward compatibility
+// with programs that already use it. Calling yr_finalize_thread from each
+// thread using libyara is not required anymore.
 
-YR_API void yr_finalize_thread(void)
+YR_DEPRECATED_API void yr_finalize_thread(void)
 {
-  yr_re_finalize_thread();
 }
 
 
 //
 // yr_finalize
 //
-// Should be called by main thread before exiting. Main thread doesn't
-// need to explicitely call yr_finalize_thread because yr_finalize already
-// calls it.
+// Should be called by main thread before exiting.
 //
 
 YR_API int yr_finalize(void)
 {
-  #ifdef HAVE_LIBCRYPTO
+  #if defined HAVE_LIBCRYPTO && OPENSSL_VERSION_NUMBER < 0x10100000L
   int i;
   #endif
 
-  yr_re_finalize_thread();
+  // yr_finalize shouldn't be called without calling yr_initialize first
 
-  if (--init_count > 0)
+  if (init_count == 0)
+    return ERROR_INTERNAL_FATAL_ERROR;
+
+  init_count--;
+
+  if (init_count > 0)
     return ERROR_SUCCESS;
 
-  #ifdef HAVE_LIBCRYPTO
+  #if defined HAVE_LIBCRYPTO && OPENSSL_VERSION_NUMBER < 0x10100000L
+
   for (i = 0; i < CRYPTO_num_locks(); i ++)
-    pthread_mutex_destroy(&locks[i]);
-  OPENSSL_free(locks);
+    yr_mutex_destroy(&openssl_locks[i]);
+
+  OPENSSL_free(openssl_locks);
+  CRYPTO_set_id_callback(NULL);
+  CRYPTO_set_locking_callback(NULL);
+
+  #elif defined(HAVE_WINCRYPT_H)
+
+  CryptReleaseContext(yr_cryptprov, 0);
+
   #endif
 
-  #ifdef _WIN32
-  TlsFree(tidx_key);
-  TlsFree(recovery_state_key);
-  #else
-  pthread_key_delete(tidx_key);
-  pthread_key_delete(recovery_state_key);
-  #endif
-
-  FAIL_ON_ERROR(yr_re_finalize());
+  FAIL_ON_ERROR(yr_thread_storage_destroy(&yr_tidx_key));
+  FAIL_ON_ERROR(yr_thread_storage_destroy(&yr_recovery_state_key));
   FAIL_ON_ERROR(yr_modules_finalize());
   FAIL_ON_ERROR(yr_heap_free());
+
+  #if defined(JEMALLOC)
+  malloc_stats_print(NULL, NULL, NULL);
+  mallctl("prof.dump", NULL, NULL, NULL, 0);
+  #endif
 
   return ERROR_SUCCESS;
 }
 
 //
-// _yr_set_tidx
+// yr_set_tidx
 //
 // Set the thread index (tidx) for the current thread. The tidx is the index
 // that will be used by the thread to access thread-specific data stored in
@@ -187,16 +262,12 @@ YR_API int yr_finalize(void)
 
 YR_API void yr_set_tidx(int tidx)
 {
-  #ifdef _WIN32
-  TlsSetValue(tidx_key, (LPVOID) (tidx + 1));
-  #else
-  pthread_setspecific(tidx_key, (void*) (size_t) (tidx + 1));
-  #endif
+  yr_thread_storage_set_value(&yr_tidx_key, (void*) (size_t) (tidx + 1));
 }
 
 
 //
-// _yr_get_tidx
+// yr_get_tidx
 //
 // Get the thread index (tidx) for the current thread.
 //
@@ -207,9 +278,71 @@ YR_API void yr_set_tidx(int tidx)
 
 YR_API int yr_get_tidx(void)
 {
-  #ifdef _WIN32
-  return (int) TlsGetValue(tidx_key) - 1;
-  #else
-  return (int) (size_t) pthread_getspecific(tidx_key) - 1;
-  #endif
+  return (int) (size_t) yr_thread_storage_get_value(&yr_tidx_key) - 1;
+}
+
+
+//
+// yr_set_configuration
+//
+// Sets a configuration option. This function receives a configuration name,
+// as defined by the YR_CONFIG_NAME enum, and a pointer to the value being
+// set. The type of the value depends on the configuration name.
+//
+// Args:
+//    YR_CONFIG_NAME  name   - Any of the values defined by the YR_CONFIG_NAME
+//                             enum. Posible values are:
+//
+//       YR_CONFIG_STACK_SIZE             data type: uint32_t
+//       YR_CONFIG_MAX_STRINGS_PER_RULE   data type: uint32_t
+//       YR_CONFIG_MAX_MATCH_DATA         data type: uint32_t
+//
+//    void *src              - Pointer to the value being set for the option.
+//
+// Returns:
+//    An error code.
+
+YR_API int yr_set_configuration(
+    YR_CONFIG_NAME name,
+    void *src)
+{
+  if (src == NULL)
+    return ERROR_INTERNAL_FATAL_ERROR;
+
+  switch (name)
+  { // lump all the cases using same types together in one cascade
+    case YR_CONFIG_STACK_SIZE:
+    case YR_CONFIG_MAX_STRINGS_PER_RULE:
+    case YR_CONFIG_MAX_MATCH_DATA:
+      yr_cfgs[name].ui32 = *(uint32_t*) src;
+      break;
+
+    default:
+      return ERROR_INTERNAL_FATAL_ERROR;
+  }
+
+  return ERROR_SUCCESS;
+}
+
+
+YR_API int yr_get_configuration(
+    YR_CONFIG_NAME name,
+    void *dest)
+{
+  if (dest == NULL)
+    return ERROR_INTERNAL_FATAL_ERROR;
+
+  switch (name)
+  { // lump all the cases using same types together in one cascade
+    case YR_CONFIG_STACK_SIZE:
+    case YR_CONFIG_MAX_STRINGS_PER_RULE:
+    case YR_CONFIG_MAX_MATCH_DATA:
+      *(uint32_t*) dest = yr_cfgs[name].ui32;
+      break;
+
+    default:
+      return ERROR_INTERNAL_FATAL_ERROR;
+  }
+
+  return ERROR_SUCCESS;
 }

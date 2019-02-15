@@ -1,32 +1,46 @@
 /*
 Copyright (c) 2014. The YARA Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-   http://www.apache.org/licenses/LICENSE-2.0
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <openssl/md5.h>
-#include <openssl/sha.h>
+#include "../crypto.h"
 
-#if _WIN32
-#define PRIu64 "%I64d"
-#define PRIx64 "%I64x"
-#else
-#include <inttypes.h>
-#endif
-
+#include <yara/mem.h>
 #include <yara/modules.h>
 
 #define MODULE_NAME hash
+
+
+typedef struct _CACHE_KEY
+{
+  int64_t offset;
+  int64_t length;
+
+} CACHE_KEY;
 
 
 void digest_to_ascii(
@@ -43,19 +57,66 @@ void digest_to_ascii(
 }
 
 
+char* get_from_cache(
+    YR_OBJECT* module_object,
+    const char* ns,
+    int64_t offset,
+    int64_t length)
+{
+  CACHE_KEY key;
+  YR_HASH_TABLE* hash_table = (YR_HASH_TABLE*) module_object->data;
+
+  key.offset = offset;
+  key.length = length;
+
+  return (char*) yr_hash_table_lookup_raw_key(
+      hash_table,
+      &key,
+      sizeof(key),
+      ns);
+}
+
+
+int add_to_cache(
+    YR_OBJECT* module_object,
+    const char* ns,
+    int64_t offset,
+    int64_t length,
+    const char* digest)
+{
+  CACHE_KEY key;
+  YR_HASH_TABLE* hash_table = (YR_HASH_TABLE*) module_object->data;
+
+  char* copy = yr_strdup(digest);
+
+  key.offset = offset;
+  key.length = length;
+
+  if (copy == NULL)
+    return ERROR_INSUFFICIENT_MEMORY;
+
+  return yr_hash_table_add_raw_key(
+      hash_table,
+      &key,
+      sizeof(key),
+      ns,
+      (void*) copy);
+}
+
+
 define_function(string_md5)
-{ 
-  unsigned char digest[MD5_DIGEST_LENGTH];
-  char digest_ascii[MD5_DIGEST_LENGTH * 2 + 1];
-  
-  MD5_CTX md5_context;
+{
+  unsigned char digest[YR_MD5_LEN];
+  char digest_ascii[YR_MD5_LEN * 2 + 1];
+
+  yr_md5_ctx md5_context;
   SIZED_STRING* s = sized_string_argument(1);
 
-  MD5_Init(&md5_context);
-  MD5_Update(&md5_context, s->c_string, s->length);
-  MD5_Final(digest, &md5_context);
+  yr_md5_init(&md5_context);
+  yr_md5_update(&md5_context, s->c_string, s->length);
+  yr_md5_final(digest, &md5_context);
 
-  digest_to_ascii(digest, digest_ascii, MD5_DIGEST_LENGTH);
+  digest_to_ascii(digest, digest_ascii, YR_MD5_LEN);
 
   return_string(digest_ascii);
 }
@@ -63,35 +124,35 @@ define_function(string_md5)
 
 define_function(string_sha256)
 {
-  unsigned char digest[SHA256_DIGEST_LENGTH];
-  char digest_ascii[SHA256_DIGEST_LENGTH * 2 + 1];
+  unsigned char digest[YR_SHA256_LEN];
+  char digest_ascii[YR_SHA256_LEN * 2 + 1];
 
-  SHA256_CTX sha256_context;
+  yr_sha256_ctx sha256_context;
   SIZED_STRING* s = sized_string_argument(1);
 
-  SHA256_Init(&sha256_context);
-  SHA256_Update(&sha256_context, s->c_string, s->length);
-  SHA256_Final(digest, &sha256_context);
+  yr_sha256_init(&sha256_context);
+  yr_sha256_update(&sha256_context, s->c_string, s->length);
+  yr_sha256_final(digest, &sha256_context);
 
-  digest_to_ascii(digest, digest_ascii, SHA256_DIGEST_LENGTH);
+  digest_to_ascii(digest, digest_ascii, YR_SHA256_LEN);
 
   return_string(digest_ascii);
 }
 
 
 define_function(string_sha1)
-{ 
-  unsigned char digest[SHA_DIGEST_LENGTH];
-  char digest_ascii[SHA_DIGEST_LENGTH * 2 + 1];
+{
+  unsigned char digest[YR_SHA1_LEN];
+  char digest_ascii[YR_SHA1_LEN * 2 + 1];
 
-  SHA_CTX sha_context;
+  yr_sha1_ctx sha_context;
   SIZED_STRING* s = sized_string_argument(1);
 
-  SHA1_Init(&sha_context);
-  SHA1_Update(&sha_context, s->c_string, s->length);
-  SHA1_Final(digest, &sha_context);
+  yr_sha1_init(&sha_context);
+  yr_sha1_update(&sha_context, s->c_string, s->length);
+  yr_sha1_final(digest, &sha_context);
 
-  digest_to_ascii(digest, digest_ascii, SHA_DIGEST_LENGTH);
+  digest_to_ascii(digest, digest_ascii, YR_SHA1_LEN);
 
   return_string(digest_ascii);
 }
@@ -113,49 +174,63 @@ define_function(string_checksum32)
 
 define_function(data_md5)
 {
-  MD5_CTX md5_context;
+  yr_md5_ctx md5_context;
 
-  unsigned char digest[MD5_DIGEST_LENGTH];
-  char digest_ascii[MD5_DIGEST_LENGTH * 2 + 1];
+  unsigned char digest[YR_MD5_LEN];
+  char digest_ascii[YR_MD5_LEN * 2 + 1];
+  char* cached_ascii_digest;
 
-  int past_first_block = FALSE;
+  bool past_first_block = false;
 
   YR_SCAN_CONTEXT* context = scan_context();
-  YR_MEMORY_BLOCK* block = NULL;
+  YR_MEMORY_BLOCK* block = first_memory_block(context);
+  YR_MEMORY_BLOCK_ITERATOR* iterator = context->iterator;
 
-  int64_t offset = integer_argument(1);   // offset where to start
-  int64_t length = integer_argument(2);   // length of bytes we want hash on
+  int64_t arg_offset = integer_argument(1);   // offset where to start
+  int64_t arg_length = integer_argument(2);   // length of bytes we want hash on
 
-  MD5_Init(&md5_context);
+  int64_t offset = arg_offset;
+  int64_t length = arg_length;
 
-  if (offset < 0 || length < 0 || offset < context->mem_block->base)
-  {
-    return ERROR_WRONG_ARGUMENTS;
-  }
+  yr_md5_init(&md5_context);
 
-  foreach_memory_block(context, block)
+  if (offset < 0 || length < 0 || offset < block->base)
+    return_string(UNDEFINED);
+
+  cached_ascii_digest = get_from_cache(
+      module(), "md5", arg_offset, arg_length);
+
+  if (cached_ascii_digest != NULL)
+    return_string(cached_ascii_digest);
+
+  foreach_memory_block(iterator, block)
   {
     // if desired block within current block
 
     if (offset >= block->base &&
         offset < block->base + block->size)
     {
-      size_t data_offset = (size_t) (offset - block->base);
-      size_t data_len = (size_t) yr_min(
+      const uint8_t* block_data = block->fetch_data(block);
+
+      if (block_data != NULL)
+      {
+        size_t data_offset = (size_t) (offset - block->base);
+        size_t data_len = (size_t) yr_min(
           length, (size_t) (block->size - data_offset));
 
-      offset += data_len;
-      length -= data_len;
+        offset += data_len;
+        length -= data_len;
 
-      MD5_Update(&md5_context, block->data + data_offset, data_len);
+        yr_md5_update(&md5_context, block_data + data_offset, data_len);
+      }
 
-      past_first_block = TRUE;
+      past_first_block = true;
     }
     else if (past_first_block)
     {
       // If offset is not within current block and we already
       // past the first block then the we are trying to compute
-      // the checksum over a range of non contiguos blocks. As
+      // the checksum over a range of non contiguous blocks. As
       // range contains gaps of undefined data the checksum is
       // undefined.
 
@@ -169,9 +244,12 @@ define_function(data_md5)
   if (!past_first_block)
     return_string(UNDEFINED);
 
-  MD5_Final(digest, &md5_context);
+  yr_md5_final(digest, &md5_context);
 
-  digest_to_ascii(digest, digest_ascii, MD5_DIGEST_LENGTH);
+  digest_to_ascii(digest, digest_ascii, YR_MD5_LEN);
+
+  FAIL_ON_ERROR(
+      add_to_cache(module(), "md5", arg_offset, arg_length, digest_ascii));
 
   return_string(digest_ascii);
 }
@@ -179,48 +257,62 @@ define_function(data_md5)
 
 define_function(data_sha1)
 {
-  SHA_CTX sha_context;
+  yr_sha1_ctx sha_context;
 
-  unsigned char digest[SHA_DIGEST_LENGTH];
-  char digest_ascii[SHA_DIGEST_LENGTH * 2 + 1];
+  unsigned char digest[YR_SHA1_LEN];
+  char digest_ascii[YR_SHA1_LEN * 2 + 1];
+  char* cached_ascii_digest;
 
-  int past_first_block = FALSE;
+  int past_first_block = false;
 
-  int64_t offset = integer_argument(1);   // offset where to start
-  int64_t length = integer_argument(2);   // length of bytes we want hash on
+  int64_t arg_offset = integer_argument(1);   // offset where to start
+  int64_t arg_length = integer_argument(2);   // length of bytes we want hash on
+
+  int64_t offset = arg_offset;
+  int64_t length = arg_length;
 
   YR_SCAN_CONTEXT* context = scan_context();
-  YR_MEMORY_BLOCK* block = NULL;
+  YR_MEMORY_BLOCK* block = first_memory_block(context);
+  YR_MEMORY_BLOCK_ITERATOR* iterator = context->iterator;
 
-  SHA1_Init(&sha_context);
+  yr_sha1_init(&sha_context);
 
-  if (offset < 0 || length < 0 || offset < context->mem_block->base)
-  {
-    return ERROR_WRONG_ARGUMENTS;
-  }
+  if (offset < 0 || length < 0 || offset < block->base)
+    return_string(UNDEFINED);
 
-  foreach_memory_block(context, block)
+  cached_ascii_digest = get_from_cache(
+      module(), "sha1", arg_offset, arg_length);
+
+  if (cached_ascii_digest != NULL)
+    return_string(cached_ascii_digest);
+
+  foreach_memory_block(iterator, block)
   {
     // if desired block within current block
     if (offset >= block->base &&
         offset < block->base + block->size)
     {
-      size_t data_offset = (size_t) (offset - block->base);
-      size_t data_len = (size_t) yr_min(
+      const uint8_t* block_data = block->fetch_data(block);
+
+      if (block_data != NULL)
+      {
+        size_t data_offset = (size_t) (offset - block->base);
+        size_t data_len = (size_t) yr_min(
           length, (size_t) block->size - data_offset);
 
-      offset += data_len;
-      length -= data_len;
+        offset += data_len;
+        length -= data_len;
 
-      SHA1_Update(&sha_context, block->data + data_offset, data_len);
+        yr_sha1_update(&sha_context, block_data + data_offset, data_len);
+      }
 
-      past_first_block = TRUE;
+      past_first_block = true;
     }
     else if (past_first_block)
     {
       // If offset is not within current block and we already
       // past the first block then the we are trying to compute
-      // the checksum over a range of non contiguos blocks. As
+      // the checksum over a range of non contiguous blocks. As
       // range contains gaps of undefined data the checksum is
       // undefined.
 
@@ -234,57 +326,74 @@ define_function(data_sha1)
   if (!past_first_block)
     return_string(UNDEFINED);
 
-  SHA1_Final(digest, &sha_context);
+  yr_sha1_final(digest, &sha_context);
 
-  digest_to_ascii(digest, digest_ascii, SHA_DIGEST_LENGTH);
+  digest_to_ascii(digest, digest_ascii, YR_SHA1_LEN);
+
+  FAIL_ON_ERROR(
+      add_to_cache(module(), "sha1", arg_offset, arg_length, digest_ascii));
 
   return_string(digest_ascii);
 }
 
 
 define_function(data_sha256)
-{   
-  SHA256_CTX sha256_context;
+{
+  yr_sha256_ctx sha256_context;
 
-  unsigned char digest[SHA256_DIGEST_LENGTH];
-  char digest_ascii[SHA256_DIGEST_LENGTH * 2 + 1];
+  unsigned char digest[YR_SHA256_LEN];
+  char digest_ascii[YR_SHA256_LEN * 2 + 1];
+  char* cached_ascii_digest;
 
-  int past_first_block = FALSE;
+  int past_first_block = false;
 
-  int64_t offset = integer_argument(1);   // offset where to start
-  int64_t length = integer_argument(2);   // length of bytes we want hash on
+  int64_t arg_offset = integer_argument(1);   // offset where to start
+  int64_t arg_length = integer_argument(2);   // length of bytes we want hash on
+
+  int64_t offset = arg_offset;
+  int64_t length = arg_length;
 
   YR_SCAN_CONTEXT* context = scan_context();
-  YR_MEMORY_BLOCK* block = NULL;
+  YR_MEMORY_BLOCK* block = first_memory_block(context);
+  YR_MEMORY_BLOCK_ITERATOR* iterator = context->iterator;
 
-  SHA256_Init(&sha256_context);
+  yr_sha256_init(&sha256_context);
 
-  if (offset < 0 || length < 0 || offset < context->mem_block->base)
-  {
-    return ERROR_WRONG_ARGUMENTS;
-  }
+  if (offset < 0 || length < 0 || offset < block->base)
+    return_string(UNDEFINED);
 
-  foreach_memory_block(context, block)
+  cached_ascii_digest = get_from_cache(
+      module(), "sha256", arg_offset, arg_length);
+
+  if (cached_ascii_digest != NULL)
+    return_string(cached_ascii_digest);
+
+  foreach_memory_block(iterator, block)
   {
     // if desired block within current block
     if (offset >= block->base &&
         offset < block->base + block->size)
     {
-      size_t data_offset = (size_t) (offset - block->base);
-      size_t data_len = (size_t) yr_min(length, block->size - data_offset);
+      const uint8_t* block_data = block->fetch_data(block);
 
-      offset += data_len;
-      length -= data_len;
+      if (block_data != NULL)
+      {
+        size_t data_offset = (size_t) (offset - block->base);
+        size_t data_len = (size_t) yr_min(length, block->size - data_offset);
 
-      SHA256_Update(&sha256_context, block->data + data_offset, data_len);
+        offset += data_len;
+        length -= data_len;
 
-      past_first_block = TRUE;
+        yr_sha256_update(&sha256_context, block_data + data_offset, data_len);
+      }
+
+      past_first_block = true;
     }
     else if (past_first_block)
     {
       // If offset is not within current block and we already
       // past the first block then the we are trying to compute
-      // the checksum over a range of non contiguos blocks. As
+      // the checksum over a range of non contiguous blocks. As
       // range contains gaps of undefined data the checksum is
       // undefined.
 
@@ -298,9 +407,12 @@ define_function(data_sha256)
   if (!past_first_block)
     return_string(UNDEFINED);
 
-  SHA256_Final(digest, &sha256_context);
+  yr_sha256_final(digest, &sha256_context);
 
-  digest_to_ascii(digest, digest_ascii, SHA256_DIGEST_LENGTH);
+  digest_to_ascii(digest, digest_ascii, YR_SHA256_LEN);
+
+  FAIL_ON_ERROR(
+      add_to_cache(module(), "sha256", arg_offset, arg_length, digest_ascii));
 
   return_string(digest_ascii);
 }
@@ -312,39 +424,43 @@ define_function(data_checksum32)
   int64_t length = integer_argument(2);   // length of bytes we want hash on
 
   YR_SCAN_CONTEXT* context = scan_context();
-  YR_MEMORY_BLOCK* block = NULL;
+  YR_MEMORY_BLOCK* block = first_memory_block(context);
+  YR_MEMORY_BLOCK_ITERATOR* iterator = context->iterator;
 
   uint32_t checksum = 0;
-  int past_first_block = FALSE;
+  int past_first_block = false;
 
-  if (offset < 0 || length < 0 || offset < context->mem_block->base)
-  {
-    return ERROR_WRONG_ARGUMENTS;
-  }
+  if (offset < 0 || length < 0 || offset < block->base)
+    return_integer(UNDEFINED);
 
-  foreach_memory_block(context, block)
+  foreach_memory_block(iterator, block)
   {
     if (offset >= block->base &&
         offset < block->base + block->size)
     {
-      size_t i;
+      const uint8_t* block_data = block->fetch_data(block);
 
-      size_t data_offset = (size_t) (offset - block->base);
-      size_t data_len = (size_t) yr_min(length, block->size - data_offset);
+      if (block_data != NULL)
+      {
+        size_t i;
 
-      offset += data_len;
-      length -= data_len;
+        size_t data_offset = (size_t) (offset - block->base);
+        size_t data_len = (size_t) yr_min(length, block->size - data_offset);
 
-      for (i = 0; i < data_len; i++)
-        checksum += *(block->data + data_offset + i);
+        offset += data_len;
+        length -= data_len;
 
-      past_first_block = TRUE;
+        for (i = 0; i < data_len; i++)
+          checksum += *(block_data + data_offset + i);
+      }
+
+      past_first_block = true;
     }
     else if (past_first_block)
     {
       // If offset is not within current block and we already
       // past the first block then the we are trying to compute
-      // the checksum over a range of non contiguos blocks. As
+      // the checksum over a range of non contiguous blocks. As
       // range contains gaps of undefined data the checksum is
       // undefined.
 
@@ -400,6 +516,11 @@ int module_load(
     void* module_data,
     size_t module_data_size)
 {
+  YR_HASH_TABLE* hash_table;
+
+  FAIL_ON_ERROR(yr_hash_table_create(17, &hash_table));
+
+  module_object->data = hash_table;
 
   return ERROR_SUCCESS;
 }
@@ -408,5 +529,12 @@ int module_load(
 int module_unload(
     YR_OBJECT* module_object)
 {
+  YR_HASH_TABLE* hash_table = (YR_HASH_TABLE*) module_object->data;
+
+  if (hash_table != NULL)
+    yr_hash_table_destroy(
+        hash_table,
+        (YR_HASH_TABLE_FREE_VALUE_FUNC) yr_free);
+
   return ERROR_SUCCESS;
 }

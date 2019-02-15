@@ -1,17 +1,30 @@
 /*
 Copyright (c) 2014. The YARA Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-   http://www.apache.org/licenses/LICENSE-2.0
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <yara/modules.h>
@@ -69,6 +82,33 @@ define_function(empty)
 }
 
 
+define_function(match)
+{
+  return_integer(
+      yr_re_match(
+          scan_context(),
+          regexp_argument(1),
+          string_argument(2)));
+}
+
+
+define_function(foobar)
+{
+  int64_t arg = integer_argument(1);
+
+  switch (arg)
+  {
+    case 1:
+      return_string("foo");
+      break;
+    case 2:
+      return_string("bar");
+      break;
+  }
+
+  return_string("oops")
+}
+
 begin_declarations;
 
   begin_struct("constants");
@@ -82,6 +122,8 @@ begin_declarations;
     declare_integer("i");
     declare_float("f");
   end_struct("undefined");
+
+  declare_string("module_data")
 
   declare_integer_array("integer_array");
   declare_string_array("string_array");
@@ -99,12 +141,14 @@ begin_declarations;
     declare_string("s");
   end_struct_dictionary("struct_dict");
 
+  declare_function("match", "rs", "i", match);
   declare_function("isum", "ii", "i", isum_2);
   declare_function("isum", "iii", "i", isum_3);
   declare_function("fsum", "ff", "f", fsum_2);
   declare_function("fsum", "fff", "f", fsum_3);
   declare_function("length", "s", "i", length);
   declare_function("empty", "", "s", empty);
+  declare_function("foobar", "i", "s", foobar);
 
 end_declarations;
 
@@ -138,6 +182,7 @@ int module_load(
   set_integer(0, module_object, "integer_array[%i]", 0);
   set_integer(1, module_object, "integer_array[%i]", 1);
   set_integer(2, module_object, "integer_array[%i]", 2);
+  set_integer(256, module_object, "integer_array[%i]", 256);
 
   set_string("foo", module_object, "string_array[%i]", 0);
   set_string("bar", module_object, "string_array[%i]", 1);
@@ -151,6 +196,14 @@ int module_load(
   set_string("foo", module_object, "struct_dict[%s].s", "foo");
   set_integer(1, module_object, "struct_dict[%s].i", "foo");
 
+  if (module_data_size > 0 && module_data != NULL) {
+    set_sized_string(
+        (const char*) module_data,
+        module_data_size,
+        module_object,
+        "module_data");
+  }
+
   return ERROR_SUCCESS;
 }
 
@@ -158,5 +211,10 @@ int module_load(
 int module_unload(
     YR_OBJECT* module_object)
 {
+  // Fail if module_unload is called twice with the same module_object
+  if (module_object->data == (void*) 0xFABADA)
+    assert(false);
+
+  module_object->data = (void*) 0xFABADA;
   return ERROR_SUCCESS;
 }

@@ -1,25 +1,38 @@
 /*
 Copyright (c) 2013. The YARA Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-   http://www.apache.org/licenses/LICENSE-2.0
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 %{
 
 #include <string.h>
-#include <stdint.h>
 #include <limits.h>
 
+#include <yara/integers.h>
 #include <yara/utils.h>
 #include <yara/hex_lexer.h>
 #include <yara/limits.h>
@@ -35,17 +48,17 @@ limitations under the License.
 #define YYMALLOC yr_malloc
 #define YYFREE yr_free
 
-#define mark_as_not_fast_hex_regexp() \
-    ((RE*) yyget_extra(yyscanner))->flags &= ~RE_FLAGS_FAST_HEX_REGEXP
+#define mark_as_not_fast_regexp() \
+    ((RE_AST*) yyget_extra(yyscanner))->flags &= ~RE_FLAGS_FAST_REGEXP
 
-#define ERROR_IF(x, error) \
+#define fail_if(x, error) \
     if (x) \
     { \
-      lex_env->last_error_code = error; \
+      lex_env->last_error = error; \
       YYABORT; \
     } \
 
-#define DESTROY_NODE_IF(x, node) \
+#define destroy_node_if(x, node) \
     if (x) \
     { \
       yr_re_node_destroy(node); \
@@ -53,9 +66,7 @@ limitations under the License.
 
 %}
 
-%debug
-
-%name-prefix="hex_yy"
+%name-prefix "hex_yy"
 %pure-parser
 
 %parse-param {void *yyscanner}
@@ -80,21 +91,21 @@ limitations under the License.
 %type <re_node> alternatives
 %type <re_node> range
 
-%destructor { yr_re_node_destroy($$); } tokens
-%destructor { yr_re_node_destroy($$); } token_sequence
-%destructor { yr_re_node_destroy($$); } token_or_range
-%destructor { yr_re_node_destroy($$); } token
-%destructor { yr_re_node_destroy($$); } byte
-%destructor { yr_re_node_destroy($$); } alternatives
-%destructor { yr_re_node_destroy($$); } range
+%destructor { yr_re_node_destroy($$); $$ = NULL; } tokens
+%destructor { yr_re_node_destroy($$); $$ = NULL; } token_sequence
+%destructor { yr_re_node_destroy($$); $$ = NULL; } token_or_range
+%destructor { yr_re_node_destroy($$); $$ = NULL; } token
+%destructor { yr_re_node_destroy($$); $$ = NULL; } byte
+%destructor { yr_re_node_destroy($$); $$ = NULL; } alternatives
+%destructor { yr_re_node_destroy($$); $$ = NULL; } range
 
 %%
 
 hex_string
     : '{' tokens '}'
       {
-        RE* re = yyget_extra(yyscanner);
-        re->root_node = $2;
+        RE_AST* re_ast = yyget_extra(yyscanner);
+        re_ast->root_node = $2;
       }
     ;
 
@@ -106,70 +117,22 @@ tokens
       }
     | token token
       {
-        $$ = yr_re_node_create(RE_NODE_CONCAT, $1, $2);
+        $$ = yr_re_node_create(RE_NODE_CONCAT);
 
-        DESTROY_NODE_IF($$ == NULL, $1);
-        DESTROY_NODE_IF($$ == NULL, $2);
+        destroy_node_if($$ == NULL, $1);
+        destroy_node_if($$ == NULL, $2);
 
-        ERROR_IF($$ == NULL, ERROR_INSUFICIENT_MEMORY);
+        fail_if($$ == NULL, ERROR_INSUFFICIENT_MEMORY);
+
+        yr_re_node_append_child($$, $1);
+        yr_re_node_append_child($$, $2);
       }
     | token token_sequence token
       {
-        RE_NODE* new_concat;
-        RE_NODE* leftmost_concat = NULL;
-        RE_NODE* leftmost_node = $2;
+        yr_re_node_append_child($2, $3);
+        yr_re_node_prepend_child($2, $1);
 
-        $$ = NULL;
-
-        /*
-        Some portions of the code (i.e: yr_re_split_at_chaining_point)
-        expect a left-unbalanced tree where the right child of a concat node
-        can't be another concat node. A concat node must be always the left
-        child of its parent if the parent is also a concat. For this reason
-        the can't simply create two new concat nodes arranged like this:
-
-                concat
-                 /   \
-                /     \
-            token's    \
-            subtree  concat
-                     /    \
-                    /      \
-                   /        \
-           token_sequence's  token's
-               subtree       subtree
-
-        Instead we must insert the subtree for the first token as the
-        leftmost node of the token_sequence subtree.
-        */
-
-        while (leftmost_node->type == RE_NODE_CONCAT)
-        {
-          leftmost_concat = leftmost_node;
-          leftmost_node = leftmost_node->left;
-        }
-
-        new_concat = yr_re_node_create(
-            RE_NODE_CONCAT, $1, leftmost_node);
-
-        if (new_concat != NULL)
-        {
-          if (leftmost_concat != NULL)
-          {
-            leftmost_concat->left = new_concat;
-            $$ = yr_re_node_create(RE_NODE_CONCAT, $2, $3);
-          }
-          else
-          {
-            $$ = yr_re_node_create(RE_NODE_CONCAT, new_concat, $3);
-          }
-        }
-
-        DESTROY_NODE_IF($$ == NULL, $1);
-        DESTROY_NODE_IF($$ == NULL, $2);
-        DESTROY_NODE_IF($$ == NULL, $3);
-
-        ERROR_IF($$ == NULL, ERROR_INSUFICIENT_MEMORY);
+        $$ = $2;
       }
     ;
 
@@ -177,16 +140,17 @@ tokens
 token_sequence
     : token_or_range
       {
-        $$ = $1;
+        $$ = yr_re_node_create(RE_NODE_CONCAT);
+
+        destroy_node_if($$ == NULL, $1);
+        fail_if($$ == NULL, ERROR_INSUFFICIENT_MEMORY);
+
+        yr_re_node_append_child($$, $1);
       }
     | token_sequence token_or_range
       {
-        $$ = yr_re_node_create(RE_NODE_CONCAT, $1, $2);
-
-        DESTROY_NODE_IF($$ == NULL, $1);
-        DESTROY_NODE_IF($$ == NULL, $2);
-
-        ERROR_IF($$ == NULL, ERROR_INSUFICIENT_MEMORY);
+        yr_re_node_append_child($1, $2);
+        $$ = $1;
       }
     ;
 
@@ -199,7 +163,7 @@ token_or_range
     |  range
       {
         $$ = $1;
-        $$->greedy = FALSE;
+        $$->greedy = false;
       }
     ;
 
@@ -207,15 +171,6 @@ token_or_range
 token
     : byte
       {
-        lex_env->token_count++;
-
-        if (lex_env->token_count > MAX_HEX_STRING_TOKENS)
-        {
-          yr_re_node_destroy($1);
-          yyerror(yyscanner, lex_env, "string too long");
-          YYABORT;
-        }
-
         $$ = $1;
       }
     | '('
@@ -233,43 +188,35 @@ token
 range
     : '[' _NUMBER_ ']'
       {
-        RE_NODE* re_any;
-
         if ($2 <= 0)
         {
           yyerror(yyscanner, lex_env, "invalid jump length");
           YYABORT;
         }
 
-        if (lex_env->inside_or && $2 > STRING_CHAINING_THRESHOLD)
+        if (lex_env->inside_or && $2 > YR_STRING_CHAINING_THRESHOLD)
         {
           yyerror(yyscanner, lex_env, "jumps over "
-              STR(STRING_CHAINING_THRESHOLD)
+              STR(YR_STRING_CHAINING_THRESHOLD)
               " now allowed inside alternation (|)");
           YYABORT;
         }
 
-        re_any = yr_re_node_create(RE_NODE_ANY, NULL, NULL);
+        $$ = yr_re_node_create(RE_NODE_RANGE_ANY);
 
-        ERROR_IF(re_any == NULL, ERROR_INSUFICIENT_MEMORY);
-
-        $$ = yr_re_node_create(RE_NODE_RANGE, re_any, NULL);
-
-        ERROR_IF($$ == NULL, ERROR_INSUFICIENT_MEMORY);
+        fail_if($$ == NULL, ERROR_INSUFFICIENT_MEMORY);
 
         $$->start = (int) $2;
         $$->end = (int) $2;
       }
     | '[' _NUMBER_ '-' _NUMBER_ ']'
       {
-        RE_NODE* re_any;
-
         if (lex_env->inside_or &&
-            ($2 > STRING_CHAINING_THRESHOLD ||
-             $4 > STRING_CHAINING_THRESHOLD) )
+            ($2 > YR_STRING_CHAINING_THRESHOLD ||
+             $4 > YR_STRING_CHAINING_THRESHOLD) )
         {
           yyerror(yyscanner, lex_env, "jumps over "
-              STR(STRING_CHAINING_THRESHOLD)
+              STR(YR_STRING_CHAINING_THRESHOLD)
               " now allowed inside alternation (|)");
 
           YYABORT;
@@ -287,21 +234,15 @@ range
           YYABORT;
         }
 
-        re_any = yr_re_node_create(RE_NODE_ANY, NULL, NULL);
+        $$ = yr_re_node_create(RE_NODE_RANGE_ANY);
 
-        ERROR_IF(re_any == NULL, ERROR_INSUFICIENT_MEMORY);
-
-        $$ = yr_re_node_create(RE_NODE_RANGE, re_any, NULL);
-
-        ERROR_IF($$ == NULL, ERROR_INSUFICIENT_MEMORY);
+        fail_if($$ == NULL, ERROR_INSUFFICIENT_MEMORY);
 
         $$->start = (int) $2;
         $$->end = (int) $4;
       }
     | '[' _NUMBER_ '-' ']'
       {
-        RE_NODE* re_any;
-
         if (lex_env->inside_or)
         {
           yyerror(yyscanner, lex_env,
@@ -315,21 +256,15 @@ range
           YYABORT;
         }
 
-        re_any = yr_re_node_create(RE_NODE_ANY, NULL, NULL);
+        $$ = yr_re_node_create(RE_NODE_RANGE_ANY);
 
-        ERROR_IF(re_any == NULL, ERROR_INSUFICIENT_MEMORY);
-
-        $$ = yr_re_node_create(RE_NODE_RANGE, re_any, NULL);
-
-        ERROR_IF($$ == NULL, ERROR_INSUFICIENT_MEMORY);
+        fail_if($$ == NULL, ERROR_INSUFFICIENT_MEMORY);
 
         $$->start = (int) $2;
         $$->end = INT_MAX;
       }
     | '[' '-' ']'
       {
-        RE_NODE* re_any;
-
         if (lex_env->inside_or)
         {
           yyerror(yyscanner, lex_env,
@@ -337,13 +272,9 @@ range
           YYABORT;
         }
 
-        re_any = yr_re_node_create(RE_NODE_ANY, NULL, NULL);
+        $$ = yr_re_node_create(RE_NODE_RANGE_ANY);
 
-        ERROR_IF(re_any == NULL, ERROR_INSUFICIENT_MEMORY);
-
-        $$ = yr_re_node_create(RE_NODE_RANGE, re_any, NULL);
-
-        ERROR_IF($$ == NULL, ERROR_INSUFICIENT_MEMORY);
+        fail_if($$ == NULL, ERROR_INSUFFICIENT_MEMORY);
 
         $$->start = 0;
         $$->end = INT_MAX;
@@ -358,25 +289,29 @@ alternatives
       }
     | alternatives '|' tokens
       {
-        mark_as_not_fast_hex_regexp();
+        mark_as_not_fast_regexp();
 
-        $$ = yr_re_node_create(RE_NODE_ALT, $1, $3);
+        $$ = yr_re_node_create(RE_NODE_ALT);
 
-        DESTROY_NODE_IF($$ == NULL, $1);
-        DESTROY_NODE_IF($$ == NULL, $3);
+        destroy_node_if($$ == NULL, $1);
+        destroy_node_if($$ == NULL, $3);
 
-        ERROR_IF($$ == NULL, ERROR_INSUFICIENT_MEMORY);
+        fail_if($$ == NULL, ERROR_INSUFFICIENT_MEMORY);
+
+        yr_re_node_append_child($$, $1);
+        yr_re_node_append_child($$, $3);
       }
     ;
 
 byte
     : _BYTE_
       {
-        $$ = yr_re_node_create(RE_NODE_LITERAL, NULL, NULL);
+        $$ = yr_re_node_create(RE_NODE_LITERAL);
 
-        ERROR_IF($$ == NULL, ERROR_INSUFICIENT_MEMORY);
+        fail_if($$ == NULL, ERROR_INSUFFICIENT_MEMORY);
 
         $$->value = (int) $1;
+        $$->mask = 0xFF;
       }
     | _MASKED_BYTE_
       {
@@ -384,15 +319,18 @@ byte
 
         if (mask == 0x00)
         {
-          $$ = yr_re_node_create(RE_NODE_ANY, NULL, NULL);
+          $$ = yr_re_node_create(RE_NODE_ANY);
 
-          ERROR_IF($$ == NULL, ERROR_INSUFICIENT_MEMORY);
+          fail_if($$ == NULL, ERROR_INSUFFICIENT_MEMORY);
+
+          $$->value = 0x00;
+          $$->mask = 0x00;
         }
         else
         {
-          $$ = yr_re_node_create(RE_NODE_MASKED_LITERAL, NULL, NULL);
+          $$ = yr_re_node_create(RE_NODE_MASKED_LITERAL);
 
-          ERROR_IF($$ == NULL, ERROR_INSUFICIENT_MEMORY);
+          fail_if($$ == NULL, ERROR_INSUFFICIENT_MEMORY);
 
           $$->value = $1 & 0xFF;
           $$->mask = mask;

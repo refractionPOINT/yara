@@ -2,15 +2,28 @@ MODULE(tests)
 MODULE(pe)
 MODULE(elf)
 MODULE(math)
+MODULE(time)
 
-#ifdef CUCKOO
+#ifdef DOTNET_MODULE
+MODULE(dotnet)
+#endif
+
+#ifdef CUCKOO_MODULE
 MODULE(cuckoo)
 #endif
 
-#ifdef MAGIC
+#ifdef MAGIC_MODULE
 MODULE(magic)
 #endif
 
-#ifdef HASH
+#ifdef HASH_MODULE
 MODULE(hash)
+#endif
+
+#ifdef MACHO_MODULE
+MODULE(macho)
+#endif
+
+#ifdef DEX_MODULE
+MODULE(dex)
 #endif

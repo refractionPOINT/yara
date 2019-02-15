@@ -1,17 +1,30 @@
 /*
 Copyright (c) 2015. The YARA Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-   http://www.apache.org/licenses/LICENSE-2.0
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #ifndef YR_EXCEPTION_H
@@ -19,12 +32,50 @@ limitations under the License.
 
 #include <assert.h>
 
-#if _WIN32
+#if _WIN32 || __CYGWIN__
 
 #include <windows.h>
+
+// If compiling with Microsoft's compiler use structered exception handling.
+
+#ifdef _MSC_VER
+
+#include <excpt.h>
+
+static LONG CALLBACK exception_handler(
+    PEXCEPTION_POINTERS ExceptionInfo)
+{
+  switch(ExceptionInfo->ExceptionRecord->ExceptionCode)
+  {
+    case EXCEPTION_IN_PAGE_ERROR:
+    case EXCEPTION_ACCESS_VIOLATION:
+      return EXCEPTION_EXECUTE_HANDLER;
+  }
+
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+
+#define YR_TRYCATCH(_do_,_try_clause_,_catch_clause_)           \
+  do                                                            \
+  {                                                             \
+    if (_do_)                                                   \
+    {                                                           \
+      __try                                                     \
+      { _try_clause_ }                                          \
+      __except(exception_handler(GetExceptionInformation()))    \
+      { _catch_clause_ }                                        \
+    }                                                           \
+    else                                                        \
+    { _try_clause_ }                                            \
+  } while(0)
+
+#else
+
+// If not compiling with Microsoft's compiler use vectored exception handling.
+
 #include <setjmp.h>
 
-jmp_buf *exc_jmp_buf[MAX_THREADS];
+jmp_buf *exc_jmp_buf[YR_MAX_THREADS];
 
 static LONG CALLBACK exception_handler(
     PEXCEPTION_POINTERS ExceptionInfo)
@@ -37,72 +88,84 @@ static LONG CALLBACK exception_handler(
     case EXCEPTION_ACCESS_VIOLATION:
       if (tidx != -1 && exc_jmp_buf[tidx] != NULL)
         longjmp(*exc_jmp_buf[tidx], 1);
-
-      assert(FALSE);  // We should not reach this point.
   }
 
   return EXCEPTION_CONTINUE_SEARCH;
 }
 
-#define YR_TRYCATCH(_try_clause_, _catch_clause_)                       \
+#define YR_TRYCATCH(_do_,_try_clause_,_catch_clause_)                   \
   do                                                                    \
   {                                                                     \
-    jmp_buf jb;                                                         \
-    HANDLE exh = AddVectoredExceptionHandler(1, exception_handler);     \
-    int tidx = yr_get_tidx();                                           \
-    assert(tidx != -1);                                                 \
-    exc_jmp_buf[tidx] = &jb;                                            \
-    if (setjmp(jb) == 0)                                                \
-      { _try_clause_ }                                                  \
+    if (_do_)                                                           \
+    {                                                                   \
+      jmp_buf jb;                                                       \
+      HANDLE exh = AddVectoredExceptionHandler(1, exception_handler);   \
+      int tidx = yr_get_tidx();                                         \
+      assert(tidx != -1);                                               \
+      exc_jmp_buf[tidx] = &jb;                                          \
+      if (setjmp(jb) == 0)                                              \
+        { _try_clause_ }                                                \
+      else                                                              \
+        { _catch_clause_ }                                              \
+      exc_jmp_buf[tidx] = NULL;                                         \
+      RemoveVectoredExceptionHandler(exh);                              \
+    }                                                                   \
     else                                                                \
-      { _catch_clause_ }                                                \
-    exc_jmp_buf[tidx] = NULL;                                           \
-    RemoveVectoredExceptionHandler(exh);                                \
+    {                                                                   \
+      _try_clause_                                                      \
+    }                                                                   \
   } while(0)
+
+#endif
 
 #else
 
 #include <setjmp.h>
 #include <signal.h>
 
-sigjmp_buf *exc_jmp_buf[MAX_THREADS];
+sigjmp_buf *exc_jmp_buf[YR_MAX_THREADS];
 
 static void exception_handler(int sig) {
-  if (sig == SIGBUS)
+  if (sig == SIGBUS || sig == SIGSEGV)
   {
     int tidx = yr_get_tidx();
 
     if (tidx != -1 && exc_jmp_buf[tidx] != NULL)
       siglongjmp(*exc_jmp_buf[tidx], 1);
-
-    assert(FALSE);  // We should not reach this point.
   }
 }
 
 typedef struct sigaction sa;
 
-#define YR_TRYCATCH(_try_clause_, _catch_clause_)               \
+#define YR_TRYCATCH(_do_,_try_clause_, _catch_clause_)          \
   do                                                            \
   {                                                             \
-    struct sigaction oldact;                                    \
-    struct sigaction act;                                       \
-    sigset_t oldmask;                                           \
-    act.sa_handler = exception_handler;                         \
-    act.sa_flags = 0; /* SA_ONSTACK? */                         \
-    sigemptyset(&act.sa_mask);                                  \
-    pthread_sigmask(SIG_SETMASK, &act.sa_mask, &oldmask);       \
-    sigaction(SIGBUS, &act, &oldact);                           \
-    int tidx = yr_get_tidx();                                   \
-    assert(tidx != -1);                                         \
-    sigjmp_buf jb;                                              \
-    exc_jmp_buf[tidx] = &jb;                                    \
-    if (sigsetjmp(jb, 1) == 0)                                  \
-      { _try_clause_ }                                          \
+    if (_do_)                                                   \
+    {                                                           \
+      struct sigaction old_sigbus_act;                          \
+      struct sigaction old_sigsegv_act;                         \
+      struct sigaction act;                                     \
+      act.sa_handler = exception_handler;                       \
+      act.sa_flags = 0; /* SA_ONSTACK? */                       \
+      sigfillset(&act.sa_mask);                                 \
+      sigaction(SIGBUS, &act, &old_sigbus_act);                 \
+      sigaction(SIGSEGV, &act, &old_sigsegv_act);               \
+      int tidx = yr_get_tidx();                                 \
+      assert(tidx != -1);                                       \
+      sigjmp_buf jb;                                            \
+      exc_jmp_buf[tidx] = &jb;                                  \
+      if (sigsetjmp(jb, 1) == 0)                                \
+        { _try_clause_ }                                        \
+      else                                                      \
+        { _catch_clause_ }                                      \
+      exc_jmp_buf[tidx] = NULL;                                 \
+      sigaction(SIGBUS, &old_sigbus_act, NULL);                 \
+      sigaction(SIGSEGV, &old_sigsegv_act, NULL);               \
+    }                                                           \
     else                                                        \
-      { _catch_clause_ }                                        \
-    exc_jmp_buf[tidx] = NULL;                                   \
-    sigaction(SIGBUS, &oldact, NULL);                           \
-    pthread_sigmask(SIG_SETMASK, &oldmask, NULL);               \
+    {                                                           \
+      _try_clause_                                              \
+    }                                                           \
   } while (0)
 
 #endif

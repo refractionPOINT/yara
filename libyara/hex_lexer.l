@@ -1,17 +1,30 @@
 /*
 Copyright (c) 2013. The YARA Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-   http://www.apache.org/licenses/LICENSE-2.0
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 /* Lexical analyzer for hex strings */
@@ -33,10 +46,12 @@ with noyywrap then we can remove this pragma.
 
 #include <setjmp.h>
 
+#include <yara/globals.h>
 #include <yara/limits.h>
 #include <yara/error.h>
 #include <yara/mem.h>
 #include <yara/re.h>
+#include <yara/threading.h>
 #include <yara/strutils.h>
 #include <yara/hex_lexer.h>
 
@@ -49,8 +64,8 @@ with noyywrap then we can remove this pragma.
 #define ERROR_IF(x, error) \
     if (x) \
     { \
-      RE* re = yyget_extra(yyscanner); \
-      re->error_code = error; \
+      RE_AST* re_ast = yyget_extra(yyscanner); \
+      re_ast->error_code = error; \
       YYABORT; \
     } \
 
@@ -74,6 +89,7 @@ digit         [0-9]
 letter        [a-zA-Z]
 hexdigit      [a-fA-F0-9]
 
+%x comment
 %x range
 
 %%
@@ -111,7 +127,22 @@ hexdigit      [a-fA-F0-9]
   return yytext[0];
 }
 
+"/*" {
+
+  BEGIN(comment);
+}
+
+<comment>"*/" {
+
+  BEGIN(INITIAL);
+}
+
+<comment>.|\n      // skip comments
+
+"//".*             // skip single-line comments
+
 <range>\- {
+
   return yytext[0];
 }
 
@@ -150,27 +181,12 @@ hexdigit      [a-fA-F0-9]
 
 %%
 
-
-#ifdef _WIN32
-#include <windows.h>
-extern DWORD recovery_state_key;
-#else
-#include <pthread.h>
-extern pthread_key_t recovery_state_key;
-#endif
-
-
 void yyfatal(
     yyscan_t yyscanner,
     const char *error_message)
 {
-  jmp_buf* recovery_state;
-
-  #ifdef _WIN32
-  recovery_state = (jmp_buf*) TlsGetValue(recovery_state_key) ;
-  #else
-  recovery_state = (jmp_buf*) pthread_getspecific(recovery_state_key);
-  #endif
+  jmp_buf* recovery_state = (jmp_buf*) yr_thread_storage_get_value(
+      &yr_recovery_state_key);
 
   longjmp(*recovery_state, 1);
 }
@@ -180,14 +196,14 @@ void yyerror(
     HEX_LEX_ENVIRONMENT* lex_env,
     const char *error_message)
 {
-  // if lex_env->last_error_code was set to some error code before
+  // if lex_env->last_error was set to some error code before
   // don't overwrite it, we are interested in the first error, not in
   // subsequent errors like "syntax error, unexpected $end" caused by
   // early parser termination.
 
-  if (lex_env->last_error_code == ERROR_SUCCESS)
+  if (lex_env->last_error == ERROR_SUCCESS)
   {
-    lex_env->last_error_code = ERROR_INVALID_HEX_STRING;
+    lex_env->last_error = ERROR_INVALID_HEX_STRING;
 
     strlcpy(
         lex_env->last_error_message,
@@ -199,53 +215,48 @@ void yyerror(
 
 int yr_parse_hex_string(
     const char* hex_string,
-    int flags,
-    RE** re,
+    RE_AST** re_ast,
     RE_ERROR* error)
 {
   yyscan_t yyscanner;
   jmp_buf recovery_state;
   HEX_LEX_ENVIRONMENT lex_env;
 
-  lex_env.last_error_code = ERROR_SUCCESS;
+  lex_env.last_error = ERROR_SUCCESS;
   lex_env.inside_or = 0;
-  lex_env.token_count = 0;
 
-  #ifdef _WIN32
-  TlsSetValue(recovery_state_key, (LPVOID) &recovery_state);
-  #else
-  pthread_setspecific(recovery_state_key, (void*) &recovery_state);
-  #endif
+  yr_thread_storage_set_value(&yr_recovery_state_key, &recovery_state);
 
   if (setjmp(recovery_state) != 0)
     return ERROR_INTERNAL_FATAL_ERROR;
 
-  FAIL_ON_ERROR(yr_re_create(re));
+  FAIL_ON_ERROR(yr_re_ast_create(re_ast));
 
-  // The RE_FLAGS_FAST_HEX_REGEXP flag indicates a regular expression derived
-  // from a hex string that can be matched by faster algorithm. These regular
-  // expressions come from hex strings not contaning alternatives, like in:
+  // The RE_FLAGS_FAST_REGEXP flag indicates a regular expression can be
+  // matched by faster algorithm. These regular expressions come from hex
+  // strings that do not contain alternatives, like in:
+  //
   // { ( 01 02 | 03 04) 05 06 }.
   //
   // This flag is unset later during parsing if alternatives are used.
 
-  (*re)->flags |= RE_FLAGS_FAST_HEX_REGEXP;
+  (*re_ast)->flags |= RE_FLAGS_FAST_REGEXP;
 
   // Set RE_FLAGS_DOT_ALL because in hex strings the "dot" (?? in this case)
   // must match all characters including new-line.
 
-  (*re)->flags |= RE_FLAGS_DOT_ALL;
+  (*re_ast)->flags |= RE_FLAGS_DOT_ALL;
 
   yylex_init(&yyscanner);
-  yyset_extra(*re, yyscanner);
+  yyset_extra(*re_ast, yyscanner);
   yy_scan_string(hex_string, yyscanner);
   yyparse(yyscanner, &lex_env);
   yylex_destroy(yyscanner);
 
-  if (lex_env.last_error_code != ERROR_SUCCESS)
+  if (lex_env.last_error != ERROR_SUCCESS)
   {
     strlcpy(error->message, lex_env.last_error_message, sizeof(error->message));
-    return lex_env.last_error_code;
+    return lex_env.last_error;
   }
 
   return ERROR_SUCCESS;

@@ -1,22 +1,35 @@
 /*
 Copyright (c) 2007-2015. The YARA Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-   http://www.apache.org/licenses/LICENSE-2.0
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <fcntl.h>
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__CYGWIN__)
 #include <windows.h>
 #else
 #include <sys/stat.h>
@@ -77,7 +90,7 @@ YR_API int yr_filemap_map(
 //       ERROR_COULD_NOT_MAP_FILE
 //
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__CYGWIN__)
 
 YR_API int yr_filemap_map_fd(
     YR_FILE_DESCRIPTOR file,
@@ -107,7 +120,6 @@ YR_API int yr_filemap_map_fd(
   }
   else
   {
-    CloseHandle(pmapped_file->file);
     pmapped_file->file = INVALID_HANDLE_VALUE;
     return ERROR_COULD_NOT_OPEN_FILE;
   }
@@ -132,12 +144,12 @@ YR_API int yr_filemap_map_fd(
 
     if (pmapped_file->mapping == NULL)
     {
-      CloseHandle(pmapped_file->file);
       pmapped_file->file = INVALID_HANDLE_VALUE;
+      pmapped_file->size = 0;
       return ERROR_COULD_NOT_MAP_FILE;
     }
 
-    pmapped_file->data = (uint8_t*) MapViewOfFile(
+    pmapped_file->data = (const uint8_t*) MapViewOfFile(
         pmapped_file->mapping,
         FILE_MAP_READ,
         offset >> 32,
@@ -147,9 +159,9 @@ YR_API int yr_filemap_map_fd(
     if (pmapped_file->data == NULL)
     {
       CloseHandle(pmapped_file->mapping);
-      CloseHandle(pmapped_file->file);
-      pmapped_file->file = INVALID_HANDLE_VALUE;
       pmapped_file->mapping = NULL;
+      pmapped_file->file = INVALID_HANDLE_VALUE;
+      pmapped_file->size = 0;
       return ERROR_COULD_NOT_MAP_FILE;
     }
   }
@@ -193,7 +205,7 @@ YR_API int yr_filemap_map_fd(
 
   if (pmapped_file->size != 0)
   {
-    pmapped_file->data = (uint8_t*) mmap(
+    pmapped_file->data = (const uint8_t*) mmap(
         0,
         pmapped_file->size,
         PROT_READ,
@@ -203,8 +215,6 @@ YR_API int yr_filemap_map_fd(
 
     if (pmapped_file->data == MAP_FAILED)
     {
-      close(pmapped_file->file);
-
       pmapped_file->data = NULL;
       pmapped_file->size = 0;
       pmapped_file->file = -1;
@@ -212,7 +222,7 @@ YR_API int yr_filemap_map_fd(
       return ERROR_COULD_NOT_MAP_FILE;
     }
 
-    madvise(pmapped_file->data, pmapped_file->size, MADV_SEQUENTIAL);
+    madvise((void*) pmapped_file->data, pmapped_file->size, MADV_SEQUENTIAL);
   }
   else
   {
@@ -248,7 +258,7 @@ YR_API int yr_filemap_map_fd(
 //       ERROR_COULD_NOT_MAP_FILE
 //
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__CYGWIN__)
 
 YR_API int yr_filemap_map_ex(
     const char* file_path,
@@ -257,6 +267,7 @@ YR_API int yr_filemap_map_ex(
     YR_MAPPED_FILE* pmapped_file)
 {
   YR_FILE_DESCRIPTOR fd;
+  int result;
 
   if (file_path == NULL)
     return ERROR_INVALID_ARGUMENT;
@@ -273,7 +284,12 @@ YR_API int yr_filemap_map_ex(
   if (fd == INVALID_HANDLE_VALUE)
     return ERROR_COULD_NOT_OPEN_FILE;
 
-  return yr_filemap_map_fd(fd, offset, size, pmapped_file);
+  result = yr_filemap_map_fd(fd, offset, size, pmapped_file);
+
+  if (result != ERROR_SUCCESS)
+    CloseHandle(fd);
+
+  return result;
 }
 
 #else // POSIX
@@ -285,6 +301,7 @@ YR_API int yr_filemap_map_ex(
     YR_MAPPED_FILE* pmapped_file)
 {
   YR_FILE_DESCRIPTOR fd;
+  int result;
 
   if (file_path == NULL)
     return ERROR_INVALID_ARGUMENT;
@@ -294,7 +311,12 @@ YR_API int yr_filemap_map_ex(
   if (fd == -1)
     return ERROR_COULD_NOT_OPEN_FILE;
 
-  return yr_filemap_map_fd(fd, offset, size, pmapped_file);
+  result = yr_filemap_map_fd(fd, offset, size, pmapped_file);
+
+  if (result != ERROR_SUCCESS)
+    close(fd);
+
+  return result;
 }
 
 #endif
@@ -311,7 +333,7 @@ YR_API int yr_filemap_map_ex(
 
 #ifdef WIN32
 
-YR_API void yr_filemap_unmap(
+YR_API void yr_filemap_unmap_fd(
     YR_MAPPED_FILE* pmapped_file)
 {
   if (pmapped_file->data != NULL)
@@ -320,29 +342,45 @@ YR_API void yr_filemap_unmap(
   if (pmapped_file->mapping != NULL)
     CloseHandle(pmapped_file->mapping);
 
-  if (pmapped_file->file != INVALID_HANDLE_VALUE)
-    CloseHandle(pmapped_file->file);
-
-  pmapped_file->file = INVALID_HANDLE_VALUE;
   pmapped_file->mapping = NULL;
   pmapped_file->data = NULL;
   pmapped_file->size = 0;
 }
 
+YR_API void yr_filemap_unmap(
+    YR_MAPPED_FILE* pmapped_file)
+{
+  yr_filemap_unmap_fd(pmapped_file);
+
+  if (pmapped_file->file != INVALID_HANDLE_VALUE)
+  {
+    CloseHandle(pmapped_file->file);
+    pmapped_file->file = INVALID_HANDLE_VALUE;
+  }
+}
+
 #else // POSIX
+
+YR_API void yr_filemap_unmap_fd(
+    YR_MAPPED_FILE* pmapped_file)
+{
+  if (pmapped_file->data != NULL)
+    munmap((void*) pmapped_file->data, pmapped_file->size);
+
+  pmapped_file->data = NULL;
+  pmapped_file->size = 0;
+}
 
 YR_API void yr_filemap_unmap(
     YR_MAPPED_FILE* pmapped_file)
 {
-  if (pmapped_file->data != NULL)
-    munmap(pmapped_file->data, pmapped_file->size);
+  yr_filemap_unmap_fd(pmapped_file);
 
   if (pmapped_file->file != -1)
+  {
     close(pmapped_file->file);
-
-  pmapped_file->file = -1;
-  pmapped_file->data = NULL;
-  pmapped_file->size = 0;
+    pmapped_file->file = -1;
+  }
 }
 
 #endif

@@ -1,29 +1,50 @@
 /*
 Copyright (c) 2013. The YARA Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-   http://www.apache.org/licenses/LICENSE-2.0
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <stdint.h>
+#include <assert.h>
 #include <string.h>
 
+#include <yara/utils.h>
+#include <yara/integers.h>
 #include <yara/hash.h>
 #include <yara/mem.h>
 #include <yara/error.h>
 
-#define ROTATE_INT32(x, shift) \
-    ((x << (shift % 32)) | (x >> (32 - (shift % 32))))
+// Constant-time left rotate that does not invoke undefined behavior.
+// http://blog.regehr.org/archives/1063
+static uint32_t rotl32(uint32_t x, uint32_t shift) {
+  assert(shift < 32);
+  return (x << shift) | (x >> (-shift & 31));
+}
 
+#define ROTATE_INT32(x, shift) \
+    rotl32(x, shift % 32)
 
 uint32_t byte_to_int32[]  =
 {
@@ -67,22 +88,92 @@ uint32_t byte_to_int32[]  =
 };
 
 
-uint32_t hash(
+uint32_t yr_hash(
     uint32_t seed,
-    uint8_t* buffer,
+    const void* buffer,
     size_t len)
 {
-  size_t i;
+  const uint8_t* b = (uint8_t*) buffer;
+
   uint32_t result = seed;
+  size_t i;
+
+  if (len == 0)
+    return result;
 
   for (i = len - 1; i > 0; i--)
   {
-    result ^= ROTATE_INT32(byte_to_int32[*buffer], i);
-    buffer++;
+    result ^= ROTATE_INT32(byte_to_int32[*b], i);
+    b++;
   }
 
-  result ^= byte_to_int32[*buffer];
+  result ^= byte_to_int32[*b];
   return result;
+}
+
+// _yr_hash_table_lookup
+//
+// Return the value associated to a given key and optionally remove it from
+// the hash table. Key can be any byte sequence, namespace is a null-terminated
+// string, and remove is a boolean.
+
+static void* _yr_hash_table_lookup(
+    YR_HASH_TABLE* table,
+    const void* key,
+    size_t key_length,
+    const char* ns,
+    int remove)
+{
+  YR_HASH_TABLE_ENTRY* entry;
+  YR_HASH_TABLE_ENTRY* prev_entry;
+
+  void* result;
+
+  uint32_t bucket_index = yr_hash(0, key, key_length);
+
+  if (ns != NULL)
+    bucket_index = yr_hash(bucket_index, (uint8_t*) ns, strlen(ns));
+
+  bucket_index = bucket_index % table->size;
+  prev_entry = NULL;
+  entry = table->buckets[bucket_index];
+
+  while (entry != NULL)
+  {
+    int key_match = (
+        (entry->key_length == key_length) &&
+        (memcmp(entry->key, key, key_length) == 0));
+
+    int ns_match = (
+        (entry->ns == ns) ||
+        (entry->ns != NULL && ns != NULL && strcmp(entry->ns, ns) == 0));
+
+    if (key_match && ns_match)
+    {
+      result = entry->value;
+
+      if (remove)
+      {
+        if (prev_entry == NULL)
+          table->buckets[bucket_index] = entry->next;
+        else
+          prev_entry->next = entry->next;
+
+        if (entry->ns != NULL)
+          yr_free(entry->ns);
+
+        yr_free(entry->key);
+        yr_free(entry);
+      }
+
+      return result;
+    }
+
+    prev_entry = entry;
+    entry = entry->next;
+  }
+
+  return NULL;
 }
 
 
@@ -97,7 +188,7 @@ YR_API int yr_hash_table_create(
       sizeof(YR_HASH_TABLE) + size * sizeof(YR_HASH_TABLE_ENTRY*));
 
   if (new_table == NULL)
-    return ERROR_INSUFICIENT_MEMORY;
+    return ERROR_INSUFFICIENT_MEMORY;
 
   new_table->size = size;
 
@@ -156,42 +247,30 @@ YR_API void yr_hash_table_destroy(
 }
 
 
-YR_API void* yr_hash_table_lookup(
+YR_API void* yr_hash_table_lookup_raw_key(
     YR_HASH_TABLE* table,
-    const char* key,
+    const void* key,
+    size_t key_length,
     const char* ns)
 {
-  YR_HASH_TABLE_ENTRY* entry;
-  uint32_t bucket_index;
-
-  bucket_index = hash(0, (uint8_t*) key, strlen(key));
-
-  if (ns != NULL)
-    bucket_index = hash(bucket_index, (uint8_t*) ns, strlen(ns));
-
-  bucket_index = bucket_index % table->size;
-
-  entry = table->buckets[bucket_index];
-
-  while (entry != NULL)
-  {
-    if (strcmp(entry->key, key) == 0 &&
-        (entry->ns == ns ||
-         strcmp(entry->ns, ns) == 0))
-    {
-      return entry->value;
-    }
-
-    entry = entry->next;
-  }
-
-  return NULL;
+  return _yr_hash_table_lookup(table, key, key_length, ns, false);
 }
 
 
-YR_API int yr_hash_table_add(
+YR_API void* yr_hash_table_remove_raw_key(
     YR_HASH_TABLE* table,
-    const char* key,
+    const void* key,
+    size_t key_length,
+    const char* ns)
+{
+  return _yr_hash_table_lookup(table, key, key_length, ns, true);
+}
+
+
+YR_API int yr_hash_table_add_raw_key(
+    YR_HASH_TABLE* table,
+    const void* key,
+    size_t key_length,
     const char* ns,
     void* value)
 {
@@ -201,14 +280,14 @@ YR_API int yr_hash_table_add(
   entry = (YR_HASH_TABLE_ENTRY*) yr_malloc(sizeof(YR_HASH_TABLE_ENTRY));
 
   if (entry == NULL)
-    return ERROR_INSUFICIENT_MEMORY;
+    return ERROR_INSUFFICIENT_MEMORY;
 
-  entry->key = yr_strdup(key);
+  entry->key = yr_malloc(key_length);
 
   if (entry->key == NULL)
   {
     yr_free(entry);
-    return ERROR_INSUFICIENT_MEMORY;
+    return ERROR_INSUFFICIENT_MEMORY;
   }
 
   if (ns != NULL)
@@ -220,7 +299,7 @@ YR_API int yr_hash_table_add(
       yr_free(entry->key);
       yr_free(entry);
 
-      return ERROR_INSUFICIENT_MEMORY;
+      return ERROR_INSUFFICIENT_MEMORY;
     }
   }
   else
@@ -228,11 +307,15 @@ YR_API int yr_hash_table_add(
     entry->ns = NULL;
   }
 
+  entry->key_length = key_length;
   entry->value = value;
-  bucket_index = hash(0, (uint8_t*) key, strlen(key));
+
+  memcpy(entry->key, key, key_length);
+
+  bucket_index = yr_hash(0, key, key_length);
 
   if (ns != NULL)
-    bucket_index = hash(bucket_index, (uint8_t*) ns, strlen(ns));
+    bucket_index = yr_hash(bucket_index, (uint8_t*) ns, strlen(ns));
 
   bucket_index = bucket_index % table->size;
 
@@ -240,4 +323,45 @@ YR_API int yr_hash_table_add(
   table->buckets[bucket_index] = entry;
 
   return ERROR_SUCCESS;
+}
+
+
+YR_API void* yr_hash_table_lookup(
+    YR_HASH_TABLE* table,
+    const char* key,
+    const char* ns)
+{
+  return yr_hash_table_lookup_raw_key(
+      table,
+      (void*) key,
+      strlen(key),
+      ns);
+}
+
+
+YR_API void* yr_hash_table_remove(
+    YR_HASH_TABLE* table,
+    const char* key,
+    const char* ns)
+{
+  return yr_hash_table_remove_raw_key(
+      table,
+      (void*) key,
+      strlen(key),
+      ns);
+}
+
+
+YR_API int yr_hash_table_add(
+    YR_HASH_TABLE* table,
+    const char* key,
+    const char* ns,
+    void* value)
+{
+  return yr_hash_table_add_raw_key(
+      table,
+      (void*) key,
+      strlen(key),
+      ns,
+      value);
 }

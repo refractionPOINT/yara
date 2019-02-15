@@ -1,17 +1,30 @@
 /*
 Copyright (c) 2013. The YARA Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-   http://www.apache.org/licenses/LICENSE-2.0
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #ifndef _WIN32
@@ -34,7 +47,8 @@ limitations under the License.
 #include <yara.h>
 
 #include "args.h"
-#include "config.h"
+#include "common.h"
+
 
 #ifndef MAX_PATH
 #define MAX_PATH 256
@@ -43,10 +57,21 @@ limitations under the License.
 #define MAX_ARGS_EXT_VAR   32
 
 
-char* ext_vars[MAX_ARGS_EXT_VAR + 1];
-int ignore_warnings = FALSE;
-int show_version = FALSE;
-int show_help = FALSE;
+typedef struct COMPILER_RESULTS
+{
+  int errors;
+  int warnings;
+
+} COMPILER_RESULTS;
+
+
+static char* atom_quality_table;
+static char* ext_vars[MAX_ARGS_EXT_VAR + 1];
+static bool ignore_warnings = false;
+static bool show_version = false;
+static bool show_help = false;
+static bool fail_on_warnings = false;
+static int max_strings_per_rule = DEFAULT_MAX_STRINGS_PER_RULE;
 
 
 #define USAGE_STRING \
@@ -54,8 +79,20 @@ int show_help = FALSE;
 
 args_option_t options[] =
 {
-  OPT_STRING_MULTI('d', NULL, &ext_vars, MAX_ARGS_EXT_VAR,
+  OPT_STRING(0, "atom-quality-table", &atom_quality_table,
+      "path to a file with the atom quality table", "FILE"),
+
+  OPT_STRING_MULTI('d', "define", &ext_vars, MAX_ARGS_EXT_VAR,
       "define external variable", "VAR=VALUE"),
+
+  OPT_BOOLEAN(0, "fail-on-warnings", &fail_on_warnings,
+      "fail on warnings"),
+
+  OPT_BOOLEAN('h', "help", &show_help,
+      "show this help and exit"),
+
+  OPT_INTEGER(0, "max-strings-per-rule", &max_strings_per_rule,
+      "set maximum number of strings per rule (default=10000)", "NUMBER"),
 
   OPT_BOOLEAN('w', "no-warnings", &ignore_warnings,
       "disable warnings"),
@@ -63,28 +100,11 @@ args_option_t options[] =
   OPT_BOOLEAN('v', "version", &show_version,
       "show version information"),
 
-  OPT_BOOLEAN('h', "help", &show_help,
-      "show this help and exit"),
-
   OPT_END()
 };
 
 
-int is_numeric(
-    const char *str)
-{
-  while(*str)
-  {
-    if (!isdigit(*str))
-      return 0;
-    str++;
-  }
-
-  return 1;
-}
-
-
-void report_error(
+static void report_error(
     int error_level,
     const char* file_name,
     int line_number,
@@ -95,15 +115,17 @@ void report_error(
   {
     fprintf(stderr, "%s(%d): error: %s\n", file_name, line_number, message);
   }
-  else
+  else if (!ignore_warnings)
   {
-    if (!ignore_warnings)
-      fprintf(stderr, "%s(%d): warning: %s\n", file_name, line_number, message);
+    COMPILER_RESULTS* compiler_results = (COMPILER_RESULTS*) user_data;
+    compiler_results->warnings++;
+
+    fprintf(stderr, "%s(%d): warning: %s\n", file_name, line_number, message);
   }
 }
 
 
-int define_external_variables(
+static bool define_external_variables(
     YR_COMPILER* compiler)
 {
   for (int i = 0; ext_vars[i] != NULL; i++)
@@ -113,7 +135,7 @@ int define_external_variables(
     if (!equal_sign)
     {
       fprintf(stderr, "error: wrong syntax for `-d` option.\n");
-      return FALSE;
+      return false;
     }
 
     // Replace the equal sign with null character to split the external
@@ -125,7 +147,14 @@ int define_external_variables(
     char* identifier = ext_vars[i];
     char* value = equal_sign + 1;
 
-    if (is_numeric(value))
+    if (is_float(value))
+    {
+      yr_compiler_define_float_variable(
+          compiler,
+          identifier,
+          atof(value));
+    }
+    else if (is_integer(value))
     {
       yr_compiler_define_integer_variable(
           compiler,
@@ -148,17 +177,16 @@ int define_external_variables(
     }
   }
 
-  return TRUE;
+  return true;
 }
-
-
-#define exit_with_code(code) { result = code; goto _exit; }
 
 
 int main(
     int argc,
     const char** argv)
 {
+  COMPILER_RESULTS cr;
+
   YR_COMPILER* compiler = NULL;
   YR_RULES* rules = NULL;
 
@@ -168,18 +196,18 @@ int main(
 
   if (show_version)
   {
-    printf("%s\n", PACKAGE_STRING);
-    return EXIT_FAILURE;
+    printf("%s\n", YR_VERSION);
+    return EXIT_SUCCESS;
   }
 
   if (show_help)
   {
     printf("%s\n\n", USAGE_STRING);
 
-    args_print_usage(options, 25);
-    printf("\nSend bug reports and suggestions to: %s.\n", PACKAGE_BUGREPORT);
+    args_print_usage(options, 40);
+    printf("\nSend bug reports and suggestions to: vmalvarez@virustotal.com\n");
 
-    return EXIT_FAILURE;
+    return EXIT_SUCCESS;
   }
 
   if (argc < 2)
@@ -202,43 +230,32 @@ int main(
   if (!define_external_variables(compiler))
     exit_with_code(EXIT_FAILURE);
 
-  yr_compiler_set_callback(compiler, report_error, NULL);
-
-  for (int i = 0; i < argc - 1; i++)
+  if (atom_quality_table != NULL)
   {
-    const char* ns;
-    const char* file_name;
-    char* colon = (char*) strchr(argv[i], ':');
+    result = yr_compiler_load_atom_quality_table(
+        compiler, atom_quality_table, 0);
 
-    if (colon)
+    if (result != ERROR_SUCCESS)
     {
-      file_name = colon + 1;
-      *colon = '\0';
-      ns = argv[i];
-    }
-    else
-    {
-      file_name = argv[i];
-      ns = NULL;
-    }
-
-    FILE* rule_file = fopen(file_name, "r");
-
-    if (rule_file != NULL)
-    {
-      int errors = yr_compiler_add_file(
-          compiler, rule_file, ns, file_name);
-
-      fclose(rule_file);
-
-      if (errors) // errors during compilation
-        exit_with_code(EXIT_FAILURE);
-    }
-    else
-    {
-      fprintf(stderr, "error: could not open file: %s\n", file_name);
+      fprintf(stderr, "error loading atom quality table\n");
+      exit_with_code(EXIT_FAILURE);
     }
   }
+
+  cr.errors = 0;
+  cr.warnings = 0;
+
+  yr_set_configuration(YR_CONFIG_MAX_STRINGS_PER_RULE, &max_strings_per_rule);
+  yr_compiler_set_callback(compiler, report_error, &cr);
+
+  if (!compile_files(compiler, argc, argv))
+    exit_with_code(EXIT_FAILURE);
+
+  if (cr.errors > 0)
+    exit_with_code(EXIT_FAILURE);
+
+  if (fail_on_warnings && cr.warnings > 0)
+    exit_with_code(EXIT_FAILURE);
 
   result = yr_compiler_get_rules(compiler, &rules);
 
@@ -270,4 +287,3 @@ _exit:
 
   return result;
 }
-

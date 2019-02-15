@@ -1,30 +1,53 @@
 /*
 Copyright (c) 2013. The YARA Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-   http://www.apache.org/licenses/LICENSE-2.0
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #ifndef YR_ARENA_H
 #define YR_ARENA_H
 
-#include <stdint.h>
 #include <stddef.h>
 
+#include <yara/integers.h>
 #include <yara/stream.h>
 
-#define ARENA_FLAGS_FIXED_SIZE   1
-#define ARENA_FLAGS_COALESCED    2
-#define ARENA_FILE_VERSION       10
+// Indicated that the arena is self-contained and stored in a single page. A
+// self-contained arenas is one that doesn't contains any pointers to outside
+// data. All pointers in a self-contained arena points at some address within
+// the arena.
+#define ARENA_FLAGS_COALESCED         1
+
+// Each pages of an arena marked with this flag maintain a list of YR_RELOC
+// structures for keeping track of pointers stored within the arena. When the
+// arena is relocated this allows to fix those pointers that pointed to some
+// address within the relocated arena.
+#define ARENA_FLAGS_RELOCATABLE       2
+
+#define ARENA_FILE_VERSION       ((21 << 16) | YR_MAX_THREADS)
 
 #define EOL ((size_t) -1)
 
@@ -39,7 +62,6 @@ typedef struct _YR_RELOC
 
 typedef struct _YR_ARENA_PAGE
 {
-
   uint8_t* new_address;
   uint8_t* address;
 
@@ -79,6 +101,11 @@ void* yr_arena_base_address(
     YR_ARENA* arena);
 
 
+YR_ARENA_PAGE* yr_arena_page_for_address(
+    YR_ARENA* arena,
+    void* address);
+
+
 void* yr_arena_next_address(
     YR_ARENA* arena,
     void* address,
@@ -107,7 +134,7 @@ int yr_arena_allocate_struct(
     ...);
 
 
-int yr_arena_make_relocatable(
+int yr_arena_make_ptr_relocatable(
     YR_ARENA* arena,
     void* base,
     ...);
@@ -115,7 +142,7 @@ int yr_arena_make_relocatable(
 
 int yr_arena_write_data(
     YR_ARENA* arena,
-    void* data,
+    const void* data,
     size_t size,
     void** written_data);
 
@@ -137,8 +164,8 @@ int yr_arena_load_stream(
 
 
 int yr_arena_save_stream(
-  YR_ARENA* arena,
-  YR_STREAM* stream);
+    YR_ARENA* arena,
+    YR_STREAM* stream);
 
 
 int yr_arena_duplicate(

@@ -104,8 +104,8 @@ Then follows the declaration section:
 
 Here is where the module declares the functions and data structures that will
 be available for your YARA rules. In this case we are declaring just a
-string variable named *greeting*. We are going to discuss these concepts more
-in greater detail in the :ref:`declaration-section`.
+string variable named *greeting*. We are going to discuss these concepts in
+greater detail in the :ref:`declaration-section`.
 
 After the declaration section you'll find a pair of functions:
 
@@ -123,10 +123,10 @@ After the declaration section you'll find a pair of functions:
       return ERROR_SUCCESS;
     }
 
-The ``module_initialize`` function is called during YARA's initializtion while
+The ``module_initialize`` function is called during YARA's initialization while
 its counterpart ``module_finalize`` is called while finalizing YARA. These
-functions allows you initialize and finalize any global data structure you may
-need to use in your module.
+functions allow you to initialize and finalize any global data structure you
+may need to use in your module.
 
 Then comes the ``module_load`` function:
 
@@ -146,7 +146,7 @@ Then comes the ``module_load`` function:
 This function is invoked once for each scanned file, but only if the module is
 imported by some rule with the ``import`` directive. The ``module_load``
 function is where your module has the opportunity to inspect the file being
-scanned, parse or analyze it in the way prefered, and then populate the
+scanned, parse or analyze it in the way preferred, and then populate the
 data structures defined in the declarations section.
 
 In this example the ``module_load`` function doesn't inspect the file content
@@ -184,7 +184,7 @@ The *module_list* file looks like this::
     MODULE(tests)
     MODULE(pe)
 
-    #ifdef CUCKOO
+    #ifdef CUCKOO_MODULE
     MODULE(cuckoo)
     #endif
 
@@ -194,20 +194,20 @@ In our case the resulting *module_list* is::
     MODULE(tests)
     MODULE(pe)
 
-    #ifdef CUCKOO
+    #ifdef CUCKOO_MODULE
     MODULE(cuckoo)
     #endif
 
     MODULE(demo)
 
 The second step is modifying the *Makefile.am* to tell the *make* program that
-the source code for your module most be compiled and linked into YARA. At the
+the source code for your module must be compiled and linked into YARA. At the
 very beginning of *libyara/Makefile.am* you'll find this::
 
     MODULES =  modules/tests.c
     MODULES += modules/pe.c
 
-    if CUCKOO
+    if CUCKOO_MODULE
     MODULES += modules/cuckoo.c
     endif
 
@@ -217,7 +217,7 @@ Just add a new line for your module::
     MODULES =  modules/tests.c
     MODULES += modules/pe.c
 
-    if CUCKOO
+    if CUCKOO_MODULE
     MODULES += modules/cuckoo.c
     endif
 
@@ -230,7 +230,9 @@ included. Just go to the source tree root directory and type as always::
     sudo make install
 
 
-Now you should be able to create a rule like this::
+Now you should be able to create a rule like this:
+
+.. code-block:: yara
 
     import "demo"
 
@@ -274,7 +276,7 @@ declare string, integer, or float variables respectively. For example::
     end_declarations;
 
 .. note::
-    Floating-point variables requiere YARA version 3.3.0 or later.
+    Floating-point variables require YARA version 3.3.0 or later.
 
 
 Variable names can't contain characters other than letters, numbers and
@@ -322,13 +324,13 @@ Your declarations can be organized in a more structured way::
     end_declarations;
 
 In this example we're using ``begin_struct(<structure name>)`` and
-``end_struct(<structure name>)`` to delimite two structures named
+``end_struct(<structure name>)`` to delimit two structures named
 *some_structure* and *another_structure*. Within the structure delimiters you
 can put any other declarations you want, including another structure
 declaration. Also notice that members of different structures can have the same
 name, but members within the same structure must have unique names.
 
-When refering to these variables from your rules it would be like this::
+When referring to these variables from your rules it would be like this::
 
     mymodule.foo
     mymodule.some_structure.foo
@@ -418,7 +420,7 @@ the function.
 *<argument types>* is a string containing one character per
 function argument, where the character indicates the type of the argument.
 Functions can receive four different types of arguments: string, integer, float
-and regular expression, denoted by characters: **s**, **i**, **r** and **f**
+and regular expression, denoted by characters: **s**, **i**, **f** and **r**
 respectively. If your function receives two integers *<argument types>* must be
 *"ii"*, if it receives an integer as the first argument and a string as the
 second one *<argument types>* must be *"is"*, if it receives three strings and
@@ -490,7 +492,7 @@ during finalization by :c:func:`yr_finalize`. Both functions are invoked
 whether or not the module is being imported by some rule.
 
 These functions give your module an opportunity to initialize any global data
-structure it may need, but most of the times they are just empty functions:
+structure it may need, but most of the time they are just empty functions:
 
 .. code-block:: c
 
@@ -511,7 +513,7 @@ Any returned value different from ``ERROR_SUCCESS`` will abort YARA's execution.
 Implementing the module's logic
 ===============================
 
-Besides ``module_initialize`` and ``module_finalize`` Every module must
+Besides ``module_initialize`` and ``module_finalize`` every module must
 implement two other functions which are called by YARA during the
 scanning of a file or process memory space: ``module_load`` and
 ``module_unload``. Both functions are called once for each scanned file or
@@ -530,11 +532,12 @@ The ``module_load`` function has the following prototype:
         size_t module_data_size)
 
 The ``context`` argument contains information relative to the current scan,
-including the data being scanned. The ``module_object`` argument is a pointer to
-a ``YR_OBJECT`` structure associated to the module. Each structure, variable or
-function declared in a YARA module is represented by a ``YR_OBJECT`` structure.
-These structures conform a tree whose root is the module's ``YR_OBJECT``
-structure. If you have the following declarations in a module named *mymodule*::
+including the data being scanned. The ``module_object`` argument is a pointer
+to a ``YR_OBJECT`` structure associated with the module. Each structure,
+variable or function declared in a YARA module is represented by a
+``YR_OBJECT`` structure.  These structures form a tree whose root is the
+module's ``YR_OBJECT`` structure. If you have the following declarations in a
+module named *mymodule*::
 
     begin_declarations;
 
@@ -559,12 +562,12 @@ Then the tree will look like this::
           |_ YR_OBJECT(type=OBJECT_TYPE_STRING, name="baz")
 
 Notice that both *bar* and *mymodule* are of the same type
-``OBJECT_TYPE_STRUCT``, which means that the ``YR_OBJECT`` associated to the
+``OBJECT_TYPE_STRUCT``, which means that the ``YR_OBJECT`` associated with the
 module is just another structure like *bar*. In fact, when you write in your
 rules something like ``mymodule.foo`` you're performing a field lookup in a
 structure in the same way that ``bar.baz`` does.
 
-In resume, the ``module_object`` argument allows you to access every variable,
+In summary, the ``module_object`` argument allows you to access every variable,
 structure or function declared by the module by providing a pointer to the
 root of the objects tree.
 
@@ -572,9 +575,9 @@ The ``module_data`` argument is a pointer to any additional data passed to the
 module, and ``module_data_size`` is the size of that data. Not all modules
 require additional data, most of them rely on the data being scanned alone, but
 a few of them require more information as input. The :ref:`cuckoo-module` is a
-good example of this, it receives a behavior report associated to PE
-files being scanned which is passed in the ``module_data`` and
-``module_data_size`` arguments.
+good example of this, it receives a behavior report associated with PE files
+being scanned which is passed in the ``module_data`` and ``module_data_size``
+arguments.
 
 For more information on how to pass additional data to your module take a look
 at the ``-x`` argument in :ref:`command-line`.
@@ -584,7 +587,7 @@ at the ``-x`` argument in :ref:`command-line`.
 Accessing the scanned data
 --------------------------
 
-Most YARA modules needs to access the file or process memory being scanned to
+Most YARA modules need to access the file or process memory being scanned to
 extract information from it. The data being scanned is sent to the module in the
 ``YR_SCAN_CONTEXT`` structure passed to the ``module_load`` function. The data
 is sometimes sliced in blocks, therefore your module needs to iterate over the
@@ -609,9 +612,9 @@ blocks by using the ``foreach_memory_block`` macro:
 Each memory block is represented by a ``YR_MEMORY_BLOCK`` structure with the
 following attributes:
 
-.. c:type:: uint8_t*   data
+.. c:type:: YR_MEMORY_BLOCK_FETCH_DATA_FUNC  fetch_data
 
-    Pointer to the actual data for this memory block.
+    Pointer to a function returning a pointer to the block's data.
 
 .. c:type:: size_t   size
 
@@ -633,7 +636,7 @@ and your module should be prepared to handle that.
 
 The story is very different for processes. While scanning a process memory
 space your module will definitely receive a large number of blocks, one for each
-committed memory region in the proccess address space.
+committed memory region in the process address space.
 
 However, there are some cases where you don't actually need to iterate over the
 blocks. If your module just parses the header of some file format you can safely
@@ -650,17 +653,49 @@ checks in your code nevertheless). In those cases you can use the
         size_t module_data_size)
     {
         YR_MEMORY_BLOCK* block;
+        const uint8_t* block_data;
 
         block = first_memory_block(context);
+        block_data = block->fetch_data(block)
 
-        ..do something with the memory block
+        if (block_data != NULL)
+        {
+          ..do something with the memory block
+        }
     }
+
+In the previous example you can also see how to use the ``fetch_data`` function.
+This function, which is a member of the ``YR_MEMORY_BLOCK`` structure, receives
+a pointer to the same block (as a ``self`` or ``this`` pointer) and returns a
+pointer to the block's data. Your module doesn't own the memory pointed to by
+this pointer, freeing that memory is not your responsibility. However keep in
+mind that the pointer is valid only until you ask for the next memory block. As
+long as you use the pointer within the scope of a ``foreach_memory_block`` you
+are on the safe side. Also take into account that ``fetch_data`` can return a
+NULL pointer, your code must be prepared for that case.
+
+.. code-block:: c
+
+    const uint8_t* block_data;
+
+    foreach_memory_block(context, block)
+    {
+      block_data = block->fetch_data(block);
+
+      if (block_data != NULL)
+      {
+        // using block_data is safe here.
+      }
+    }
+
+    // the memory pointed to by block_data can be already freed here.
+
 
 Setting variable's values
 -------------------------
 
 The ``module_load`` function is where you assign values to the variables
-declared in the declarations section, once you've parsed or analized the scanned
+declared in the declarations section, once you've parsed or analyzed the scanned
 data and/or any additional module's data. This is done by using the
 ``set_integer`` and ``set_string`` functions:
 
@@ -701,7 +736,7 @@ descendant of ``object``. For example, consider the following declarations::
 
     end_declarations;
 
-If ``object`` points to the ``YR_OBJECT`` associated to the ``foo`` structure
+If ``object`` points to the ``YR_OBJECT`` associated with the ``foo`` structure
 you can set the value for the ``bar`` string like this:
 
 .. code-block:: c
@@ -716,7 +751,7 @@ And the value for ``qux`` like this:
 
 
 Do you remember that the ``module_object`` argument for ``module_load`` was a
-pointer to a ``YR_OBJECT``? Do you remember that this ``YR_OBJECT`` is an
+pointer to a ``YR_OBJECT``? Do you remember that this ``YR_OBJECT`` is a
 structure just like ``bar`` is? Well, you could also set the values for ``bar``
 and ``qux`` like this:
 
@@ -753,11 +788,11 @@ Then the following statements are all valid:
     set_string(<value>, module, "bar[%i].qux[%i]", 100, 200);
 
 Those ``%i`` in the field descriptor are replaced by the additional
-integer arguments passed to the function. This work in the same way than
+integer arguments passed to the function. This works in the same way as
 ``printf`` in C programs, but the only format specifiers accepted are ``%i``
 and ``%s``, for integer and string arguments respectively.
 
-The ``%s`` format specifiers is used for assigning values to a certain key
+The ``%s`` format specifier is used for assigning values to a certain key
 in a dictionary:
 
 .. code-block:: c
@@ -766,13 +801,13 @@ in a dictionary:
     set_integer(<value>, module, "foo[%s]", "key");
     set_string(<value>, module, "bar[%s].baz", "another_key");
 
-If you don't explicitely assign a value to a declared variable, array or
-dictionary item it will remain in undefined state. That's not a problem at all,
-and is even useful in many cases. For example, if your module parses files from
-certain format and it receives one from a different format, you can safely leave
-all your variables undefined instead of assigning them bogus values that doesn't
-make sense. YARA will handle undefined values in rule conditions as described in
-:ref:`using-modules`.
+If you don't explicitly assign a value to a declared variable, array or
+dictionary item it will remain in an undefined state. That's not a problem at
+all, and is even useful in many cases. For example, if your module parses files
+from a certain format and it receives one from a different format, you can
+safely leave all your variables undefined instead of assigning them bogus
+values that don't make sense. YARA will handle undefined values in rule
+conditions as described in :ref:`using-modules`.
 
 In addition to ``set_integer`` and ``set_string`` functions you have their
 ``get_integer`` and ``get_string`` counterparts. As the names suggest they
@@ -785,11 +820,11 @@ implementation of your functions to retrieve values previously stored by
 
 .. c:function:: char* get_string(YR_OBJECT* object, const char* field, ...)
 
-There's also a function to the get any ``YR_OBJECT`` in the objects tree:
+There's also a function to get any ``YR_OBJECT`` in the objects tree:
 
 .. c:function:: YR_OBJECT* get_object(YR_OBJECT* object, const char* field, ...)
 
-Here goes a little exam...
+Here is a little exam...
 
 Are the following two lines equivalent? Why?
 
@@ -805,13 +840,13 @@ Storing data for later use
 
 Sometimes the information stored directly in your variables by means of
 ``set_integer`` and ``set_string`` is not enough. You may need to store more
-complex data structures or information that don't need to be exposed to YARA
+complex data structures or information that doesn't need to be exposed to YARA
 rules.
 
 Storing information is essential when your module exports functions
 to be used in YARA rules. The implementation of these functions usually require
 to access information generated by ``module_load`` which must kept somewhere.
-You may be tempted to define global variables where to put the required
+You may be tempted to define global variables to store the required
 information, but this would make your code non-thread-safe. The correct
 approach is using the ``data`` field of the ``YR_OBJECT`` structures.
 
@@ -882,14 +917,14 @@ Here you have some examples:
 .. code-block:: c
 
     int64_t arg_1 = integer_argument(1);
-    RE_CODE arg_2 = regexp_argument(2);
+    RE* arg_2 = regexp_argument(2);
     char* arg_3 = string_argument(3);
     SIZED_STRING* arg_4 = sized_string_argument(4);
     double arg_5 = float_argument(1);
 
 The C type for integer arguments is ``int64_t``, for float arguments is
-``double``, for regular expressions is ``RE_CODE``, for NULL-terminated strings
-is ``char*`` and for string possibly contaning NULL characters is
+``double``, for regular expressions is ``RE*``, for NULL-terminated strings
+is ``char*`` and for strings possibly containing NULL characters is
 ``SIZED_STRING*``. ``SIZED_STRING`` structures have the
 following attributes:
 
@@ -928,7 +963,7 @@ Accessing objects
 -----------------
 
 While writing a function we sometimes need to access values previously assigned
-to module's variables, or additional data stored in the ``data`` field of
+to the module's variables, or additional data stored in the ``data`` field of
 ``YR_OBJECT`` structures as discussed earlier in
 :ref:`storing-data-for-later-use`. But for that we need a way to get access to
 the corresponding ``YR_OBJECT`` first. There are two functions to do that:
@@ -936,7 +971,7 @@ the corresponding ``YR_OBJECT`` first. There are two functions to do that:
 the top-level ``YR_OBJECT`` corresponding to the module, the same one passed
 to the ``module_load`` function. The ``parent()`` function returns a pointer to
 the ``YR_OBJECT`` corresponding to the structure where the function is
-contained. For example, consider the following code snipet:
+contained. For example, consider the following code snippet:
 
 .. code-block:: c
 
@@ -985,10 +1020,3 @@ you get a pointer to the ``YR_SCAN_CONTEXT`` structure:
 .. code-block:: c
 
     YR_SCAN_CONTEXT* context = scan_context();
-
-
-
-
-
-
-

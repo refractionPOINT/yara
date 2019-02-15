@@ -1,33 +1,42 @@
 /*
 Copyright (c) 2014. The YARA Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-   http://www.apache.org/licenses/LICENSE-2.0
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 
 #include <assert.h>
+#include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
-#if _WIN32
-#define PRIu64 "I64d"
-#else
-#include <inttypes.h>
-#endif
-
+#include <yara/globals.h>
 #include <yara/mem.h>
 #include <yara/error.h>
 #include <yara/object.h>
@@ -45,6 +54,8 @@ int yr_object_create(
   int i;
   size_t object_size = 0;
 
+  assert(parent != NULL || object != NULL);
+
   switch (type)
   {
     case OBJECT_TYPE_STRUCTURE:
@@ -57,29 +68,27 @@ int yr_object_create(
       object_size = sizeof(YR_OBJECT_DICTIONARY);
       break;
     case OBJECT_TYPE_INTEGER:
-      object_size = sizeof(YR_OBJECT_INTEGER);
+      object_size = sizeof(YR_OBJECT);
       break;
     case OBJECT_TYPE_FLOAT:
-      object_size = sizeof(YR_OBJECT_DOUBLE);
+      object_size = sizeof(YR_OBJECT);
       break;
     case OBJECT_TYPE_STRING:
-      object_size = sizeof(YR_OBJECT_STRING);
+      object_size = sizeof(YR_OBJECT);
       break;
     case OBJECT_TYPE_FUNCTION:
       object_size = sizeof(YR_OBJECT_FUNCTION);
       break;
-    case OBJECT_TYPE_REGEXP:
-      object_size = sizeof(YR_OBJECT_REGEXP);
-      break;
     default:
-      assert(FALSE);
+      assert(false);
   }
 
   obj = (YR_OBJECT*) yr_malloc(object_size);
 
   if (obj == NULL)
-    return ERROR_INSUFICIENT_MEMORY;
+    return ERROR_INSUFFICIENT_MEMORY;
 
+  obj->canary = yr_canary;
   obj->type = type;
   obj->identifier = yr_strdup(identifier);
   obj->parent = parent;
@@ -87,35 +96,32 @@ int yr_object_create(
 
   switch(type)
   {
-    case OBJECT_TYPE_STRUCTURE:
-      ((YR_OBJECT_STRUCTURE*) obj)->members = NULL;
-      break;
-    case OBJECT_TYPE_ARRAY:
-      ((YR_OBJECT_ARRAY*) obj)->items = NULL;
-      ((YR_OBJECT_ARRAY*) obj)->prototype_item = NULL;
-      break;
-    case OBJECT_TYPE_DICTIONARY:
-      ((YR_OBJECT_DICTIONARY*) obj)->items = NULL;
-      ((YR_OBJECT_DICTIONARY*) obj)->prototype_item = NULL;
-      break;
     case OBJECT_TYPE_INTEGER:
-      ((YR_OBJECT_INTEGER*) obj)->value = UNDEFINED;
+      obj->value.i = UNDEFINED;
       break;
     case OBJECT_TYPE_FLOAT:
-      ((YR_OBJECT_DOUBLE*) obj)->value = NAN;
+      obj->value.d = NAN;
       break;
     case OBJECT_TYPE_STRING:
-      ((YR_OBJECT_STRING*) obj)->value = NULL;
+      obj->value.ss = NULL;
       break;
-    case OBJECT_TYPE_REGEXP:
-      ((YR_OBJECT_REGEXP*) obj)->value = NULL;
+    case OBJECT_TYPE_STRUCTURE:
+      object_as_structure(obj)->members = NULL;
+      break;
+    case OBJECT_TYPE_ARRAY:
+      object_as_array(obj)->items = NULL;
+      object_as_array(obj)->prototype_item = NULL;
+      break;
+    case OBJECT_TYPE_DICTIONARY:
+      object_as_dictionary(obj)->items = NULL;
+      object_as_dictionary(obj)->prototype_item = NULL;
       break;
     case OBJECT_TYPE_FUNCTION:
-      ((YR_OBJECT_FUNCTION*) obj)->return_obj = NULL;
-      for (i = 0; i < MAX_OVERLOADED_FUNCTIONS; i++)
+      object_as_function(obj)->return_obj = NULL;
+      for (i = 0; i < YR_MAX_OVERLOADED_FUNCTIONS; i++)
       {
-        ((YR_OBJECT_FUNCTION*) obj)->prototypes[i].arguments_fmt = NULL;
-        ((YR_OBJECT_FUNCTION*) obj)->prototypes[i].code = NULL;
+        object_as_function(obj)->prototypes[i].arguments_fmt = NULL;
+        object_as_function(obj)->prototypes[i].code = NULL;
       }
       break;
   }
@@ -123,7 +129,7 @@ int yr_object_create(
   if (obj->identifier == NULL)
   {
     yr_free(obj);
-    return ERROR_INSUFICIENT_MEMORY;
+    return ERROR_INSUFFICIENT_MEMORY;
   }
 
   if (parent != NULL)
@@ -145,11 +151,15 @@ int yr_object_create(
         break;
 
       case OBJECT_TYPE_ARRAY:
-        ((YR_OBJECT_ARRAY*) parent)->prototype_item = obj;
+        object_as_array(parent)->prototype_item = obj;
         break;
 
       case OBJECT_TYPE_DICTIONARY:
-        ((YR_OBJECT_DICTIONARY*) parent)->prototype_item = obj;
+        object_as_dictionary(parent)->prototype_item = obj;
+        break;
+
+      case OBJECT_TYPE_FUNCTION:
+        object_as_function(parent)->return_obj = obj;
         break;
     }
   }
@@ -193,12 +203,16 @@ int yr_object_function_create(
 
   if (parent != NULL)
   {
+    // The parent of a function must be a structure.
+
     assert(parent->type == OBJECT_TYPE_STRUCTURE);
 
     // Try to find if the structure already has a function
-    // with that name. In that case this is a function oveload.
+    // with that name. In that case this is a function overload.
 
-    f = (YR_OBJECT_FUNCTION*) yr_object_lookup_field(parent, identifier);
+    f = object_as_function(yr_object_lookup_field(parent, identifier));
+
+    // Overloaded functions must have the same return type.
 
     if (f != NULL && return_type != f->return_obj->type)
       return ERROR_WRONG_RETURN_TYPE;
@@ -206,24 +220,25 @@ int yr_object_function_create(
 
   if (f == NULL) // Function doesn't exist yet
   {
-    // Let's create the result object first
-
-    FAIL_ON_ERROR(yr_object_create(return_type, "result", NULL, &return_obj));
-
-    FAIL_ON_ERROR_WITH_CLEANUP(
+    FAIL_ON_ERROR(
         yr_object_create(
             OBJECT_TYPE_FUNCTION,
             identifier,
             parent,
-            &o),
-        yr_object_destroy(return_obj));
+            &o));
 
-    f = (YR_OBJECT_FUNCTION*) o;
-    f->return_obj = return_obj;
-    f->return_obj->parent = (YR_OBJECT*) f;
+    FAIL_ON_ERROR_WITH_CLEANUP(
+        yr_object_create(
+            return_type,
+            "result",
+            o,
+            &return_obj),
+        yr_object_destroy(o));
+
+    f = object_as_function(o);
   }
 
-  for (i = 0; i < MAX_OVERLOADED_FUNCTIONS; i++)
+  for (i = 0; i < YR_MAX_OVERLOADED_FUNCTIONS; i++)
   {
     if (f->prototypes[i].arguments_fmt == NULL)
     {
@@ -266,7 +281,7 @@ int yr_object_from_external_variable(
       break;
 
     default:
-      assert(FALSE);
+      assert(false);
   }
 
   result = yr_object_create(
@@ -281,16 +296,16 @@ int yr_object_from_external_variable(
     {
       case EXTERNAL_VARIABLE_TYPE_INTEGER:
       case EXTERNAL_VARIABLE_TYPE_BOOLEAN:
-        yr_object_set_integer(external->value.i, obj, NULL);
+        result = yr_object_set_integer(external->value.i, obj, NULL);
         break;
 
       case EXTERNAL_VARIABLE_TYPE_FLOAT:
-        yr_object_set_float(external->value.f, obj, NULL);
+        result = yr_object_set_float(external->value.f, obj, NULL);
         break;
 
       case EXTERNAL_VARIABLE_TYPE_STRING:
       case EXTERNAL_VARIABLE_TYPE_MALLOC_STRING:
-        yr_object_set_string(
+        result = yr_object_set_string(
             external->value.s, strlen(external->value.s), obj, NULL);
         break;
     }
@@ -310,8 +325,6 @@ void yr_object_destroy(
   YR_ARRAY_ITEMS* array_items;
   YR_DICTIONARY_ITEMS* dict_items;
 
-  RE* re;
-  SIZED_STRING* str;
   int i;
 
   if (object == NULL)
@@ -320,7 +333,7 @@ void yr_object_destroy(
   switch(object->type)
   {
     case OBJECT_TYPE_STRUCTURE:
-      member = ((YR_OBJECT_STRUCTURE*) object)->members;
+      member = object_as_structure(object)->members;
 
       while (member != NULL)
       {
@@ -332,22 +345,15 @@ void yr_object_destroy(
       break;
 
     case OBJECT_TYPE_STRING:
-      str = ((YR_OBJECT_STRING*) object)->value;
-      if (str != NULL)
-        yr_free(str);
-      break;
-
-    case OBJECT_TYPE_REGEXP:
-      re = ((YR_OBJECT_REGEXP*) object)->value;
-      if (re != NULL)
-        yr_re_destroy(re);
+      if (object->value.ss != NULL)
+        yr_free(object->value.ss);
       break;
 
     case OBJECT_TYPE_ARRAY:
-      if (((YR_OBJECT_ARRAY*) object)->prototype_item != NULL)
-        yr_object_destroy(((YR_OBJECT_ARRAY*) object)->prototype_item);
+      if (object_as_array(object)->prototype_item != NULL)
+        yr_object_destroy(object_as_array(object)->prototype_item);
 
-      array_items = ((YR_OBJECT_ARRAY*) object)->items;
+      array_items = object_as_array(object)->items;
 
       if (array_items != NULL)
       {
@@ -360,10 +366,10 @@ void yr_object_destroy(
       break;
 
     case OBJECT_TYPE_DICTIONARY:
-      if (((YR_OBJECT_DICTIONARY*) object)->prototype_item != NULL)
-        yr_object_destroy(((YR_OBJECT_DICTIONARY*) object)->prototype_item);
+      if (object_as_dictionary(object)->prototype_item != NULL)
+        yr_object_destroy(object_as_dictionary(object)->prototype_item);
 
-      dict_items = ((YR_OBJECT_DICTIONARY*) object)->items;
+      dict_items = object_as_dictionary(object)->items;
 
       if (dict_items != NULL)
       {
@@ -381,7 +387,7 @@ void yr_object_destroy(
       break;
 
     case OBJECT_TYPE_FUNCTION:
-      yr_object_destroy(((YR_OBJECT_FUNCTION*) object)->return_obj);
+      yr_object_destroy(object_as_function(object)->return_obj);
       break;
   }
 
@@ -399,7 +405,7 @@ YR_OBJECT* yr_object_lookup_field(
   assert(object != NULL);
   assert(object->type == OBJECT_TYPE_STRUCTURE);
 
-  member = ((YR_OBJECT_STRUCTURE*) object)->members;
+  member = object_as_structure(object)->members;
 
   while (member != NULL)
   {
@@ -413,7 +419,7 @@ YR_OBJECT* yr_object_lookup_field(
 }
 
 
-YR_OBJECT* _yr_object_lookup(
+static YR_OBJECT* _yr_object_lookup(
     YR_OBJECT* object,
     int flags,
     const char* pattern,
@@ -433,7 +439,7 @@ YR_OBJECT* _yr_object_lookup(
   {
     i = 0;
 
-    while(*p != '\0' && *p != '.' && *p != '[' && i < sizeof(str))
+    while (*p != '\0' && *p != '.' && *p != '[' && i < sizeof(str) - 1)
     {
       str[i++] = *p++;
     }
@@ -478,7 +484,7 @@ YR_OBJECT* _yr_object_lookup(
         i = 0;
         p++;              // skip the opening quotation mark
 
-        while (*p != '"' && *p != '\0' && i < sizeof(str))
+        while (*p != '"' && *p != '\0' && i < sizeof(str) - 1)
           str[i++] = *p++;
 
         str[i] = '\0';
@@ -546,8 +552,6 @@ int yr_object_copy(
   YR_OBJECT* o;
 
   YR_STRUCTURE_MEMBER* structure_member;
-  YR_OBJECT_FUNCTION* func;
-  YR_OBJECT_FUNCTION* func_copy;
 
   int i;
 
@@ -562,34 +566,39 @@ int yr_object_copy(
   switch(object->type)
   {
     case OBJECT_TYPE_INTEGER:
-      ((YR_OBJECT_INTEGER*) copy)->value = UNDEFINED;
+      copy->value.i = object->value.i;
+      break;
+
+    case OBJECT_TYPE_FLOAT:
+      copy->value.d = object->value.d;
       break;
 
     case OBJECT_TYPE_STRING:
-      ((YR_OBJECT_STRING*) copy)->value = NULL;
-      break;
 
-    case OBJECT_TYPE_REGEXP:
-      ((YR_OBJECT_REGEXP*) copy)->value = NULL;
+      if (object->value.ss != NULL)
+        copy->value.ss = sized_string_dup(object->value.ss);
+      else
+        copy->value.ss = NULL;
+
       break;
 
     case OBJECT_TYPE_FUNCTION:
 
-      func = (YR_OBJECT_FUNCTION*) object;
-      func_copy = (YR_OBJECT_FUNCTION*) copy;
-
       FAIL_ON_ERROR_WITH_CLEANUP(
-        yr_object_copy(func->return_obj, &func_copy->return_obj),
-        yr_object_destroy(copy));
+          yr_object_copy(
+              object_as_function(object)->return_obj,
+              &object_as_function(copy)->return_obj),
+          yr_object_destroy(copy));
 
-      for (i = 0; i < MAX_OVERLOADED_FUNCTIONS; i++)
-        func_copy->prototypes[i] = func->prototypes[i];
+      for (i = 0; i < YR_MAX_OVERLOADED_FUNCTIONS; i++)
+        object_as_function(copy)->prototypes[i] = \
+            object_as_function(object)->prototypes[i];
 
       break;
 
     case OBJECT_TYPE_STRUCTURE:
 
-      structure_member = ((YR_OBJECT_STRUCTURE*) object)->members;
+      structure_member = object_as_structure(object)->members;
 
       while (structure_member != NULL)
       {
@@ -609,26 +618,26 @@ int yr_object_copy(
 
     case OBJECT_TYPE_ARRAY:
 
-      yr_object_copy(
-        ((YR_OBJECT_ARRAY *) object)->prototype_item,
-        &o);
+      FAIL_ON_ERROR_WITH_CLEANUP(
+          yr_object_copy(object_as_array(object)->prototype_item, &o),
+          yr_object_destroy(copy));
 
-      ((YR_OBJECT_ARRAY *)copy)->prototype_item = o;
+      object_as_array(copy)->prototype_item = o;
 
       break;
 
     case OBJECT_TYPE_DICTIONARY:
 
-      yr_object_copy(
-        ((YR_OBJECT_DICTIONARY *) object)->prototype_item,
-        &o);
+      FAIL_ON_ERROR_WITH_CLEANUP(
+          yr_object_copy(object_as_dictionary(object)->prototype_item, &o),
+          yr_object_destroy(copy));
 
-      ((YR_OBJECT_DICTIONARY *)copy)->prototype_item = o;
+      object_as_dictionary(copy)->prototype_item = o;
 
       break;
 
     default:
-      assert(FALSE);
+      assert(false);
 
   }
 
@@ -654,13 +663,13 @@ int yr_object_structure_set_member(
   sm = (YR_STRUCTURE_MEMBER*) yr_malloc(sizeof(YR_STRUCTURE_MEMBER));
 
   if (sm == NULL)
-    return ERROR_INSUFICIENT_MEMORY;
+    return ERROR_INSUFFICIENT_MEMORY;
 
   member->parent = object;
   sm->object = member;
-  sm->next = ((YR_OBJECT_STRUCTURE*) object)->members;
+  sm->next = object_as_structure(object)->members;
 
-  ((YR_OBJECT_STRUCTURE*) object)->members = sm;
+  object_as_structure(object)->members = sm;
 
   return ERROR_SUCCESS;
 }
@@ -679,7 +688,7 @@ YR_OBJECT* yr_object_array_get_item(
   if (index < 0)
     return NULL;
 
-  array = (YR_OBJECT_ARRAY*) object;
+  array = object_as_array(object);
 
   if (array->items != NULL && array->items->count > index)
       result = array->items->objects[index];
@@ -709,17 +718,20 @@ int yr_object_array_set_item(
   assert(index >= 0);
   assert(object->type == OBJECT_TYPE_ARRAY);
 
-  array = ((YR_OBJECT_ARRAY*) object);
+  array = object_as_array(object);
 
   if (array->items == NULL)
   {
-    count = yr_max(64, (index + 1) * 2);
+    count = 64;
+
+    while (count <= index)
+      count *= 2;
 
     array->items = (YR_ARRAY_ITEMS*) yr_malloc(
         sizeof(YR_ARRAY_ITEMS) + count * sizeof(YR_OBJECT*));
 
     if (array->items == NULL)
-      return ERROR_INSUFICIENT_MEMORY;
+      return ERROR_INSUFFICIENT_MEMORY;
 
     memset(array->items->objects, 0, count * sizeof(YR_OBJECT*));
 
@@ -728,12 +740,16 @@ int yr_object_array_set_item(
   else if (index >= array->items->count)
   {
     count = array->items->count * 2;
+
+    while (count <= index)
+      count *= 2;
+
     array->items = (YR_ARRAY_ITEMS*) yr_realloc(
         array->items,
         sizeof(YR_ARRAY_ITEMS) + count * sizeof(YR_OBJECT*));
 
     if (array->items == NULL)
-      return ERROR_INSUFICIENT_MEMORY;
+      return ERROR_INSUFFICIENT_MEMORY;
 
     for (i = array->items->count; i < count; i++)
       array->items->objects[i] = NULL;
@@ -760,7 +776,7 @@ YR_OBJECT* yr_object_dict_get_item(
 
   assert(object->type == OBJECT_TYPE_DICTIONARY);
 
-  dict = (YR_OBJECT_DICTIONARY*) object;
+  dict = object_as_dictionary(object);
 
   if (dict->items != NULL)
   {
@@ -795,7 +811,7 @@ int yr_object_dict_set_item(
 
   assert(object->type == OBJECT_TYPE_DICTIONARY);
 
-  dict = ((YR_OBJECT_DICTIONARY*) object);
+  dict = object_as_dictionary(object);
 
   if (dict->items == NULL)
   {
@@ -805,7 +821,7 @@ int yr_object_dict_set_item(
         sizeof(YR_DICTIONARY_ITEMS) + count * sizeof(dict->items->objects[0]));
 
     if (dict->items == NULL)
-      return ERROR_INSUFICIENT_MEMORY;
+      return ERROR_INSUFFICIENT_MEMORY;
 
     memset(dict->items->objects, 0, count * sizeof(dict->items->objects[0]));
 
@@ -820,7 +836,7 @@ int yr_object_dict_set_item(
         sizeof(YR_DICTIONARY_ITEMS) + count * sizeof(dict->items->objects[0]));
 
     if (dict->items == NULL)
-      return ERROR_INSUFICIENT_MEMORY;
+      return ERROR_INSUFFICIENT_MEMORY;
 
     for (i = dict->items->used; i < count; i++)
     {
@@ -843,7 +859,7 @@ int yr_object_dict_set_item(
 }
 
 
-int yr_object_has_undefined_value(
+bool yr_object_has_undefined_value(
     YR_OBJECT* object,
     const char* field,
     ...)
@@ -861,19 +877,19 @@ int yr_object_has_undefined_value(
   va_end(args);
 
   if (field_obj == NULL)
-    return TRUE;
+    return true;
 
   switch(field_obj->type)
   {
     case OBJECT_TYPE_FLOAT:
-      return isnan(((YR_OBJECT_DOUBLE*) field_obj)->value);
+      return isnan(field_obj->value.d);
     case OBJECT_TYPE_STRING:
-      return ((YR_OBJECT_STRING*) field_obj)->value == NULL;
+      return field_obj->value.ss == NULL;
     case OBJECT_TYPE_INTEGER:
-      return ((YR_OBJECT_INTEGER*) field_obj)->value == UNDEFINED;
+      return field_obj->value.i == UNDEFINED;
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -900,7 +916,7 @@ int64_t yr_object_get_integer(
   assertf(integer_obj->type == OBJECT_TYPE_INTEGER,
           "type of \"%s\" is not integer\n", field);
 
-  return ((YR_OBJECT_INTEGER*) integer_obj)->value;
+  return integer_obj->value.i;
 }
 
 
@@ -927,7 +943,7 @@ double yr_object_get_float(
   assertf(double_obj->type == OBJECT_TYPE_FLOAT,
           "type of \"%s\" is not double\n", field);
 
-  return ((YR_OBJECT_DOUBLE*) double_obj)->value;
+  return double_obj->value.d;
 }
 
 
@@ -954,7 +970,7 @@ SIZED_STRING* yr_object_get_string(
   assertf(string_obj->type == OBJECT_TYPE_STRING,
           "type of \"%s\" is not string\n", field);
 
-  return ((YR_OBJECT_STRING*) string_obj)->value;
+  return string_obj->value.ss;
 }
 
 
@@ -970,17 +986,23 @@ int yr_object_set_integer(
   va_start(args, field);
 
   if (field != NULL)
-    integer_obj = _yr_object_lookup(
-        object, OBJECT_CREATE, field, args);
+    integer_obj = _yr_object_lookup(object, OBJECT_CREATE, field, args);
   else
     integer_obj = object;
 
   va_end(args);
 
-  assert(integer_obj != NULL);
+  if (integer_obj == NULL)
+  {
+    if (field != NULL)
+      return ERROR_INSUFFICIENT_MEMORY;
+    else
+      return ERROR_INVALID_ARGUMENT;
+  }
+
   assert(integer_obj->type == OBJECT_TYPE_INTEGER);
 
-  ((YR_OBJECT_INTEGER*) integer_obj)->value = value;
+  integer_obj->value.i = value;
 
   return ERROR_SUCCESS;
 }
@@ -998,17 +1020,23 @@ int yr_object_set_float(
   va_start(args, field);
 
   if (field != NULL)
-    double_obj = _yr_object_lookup(
-        object, OBJECT_CREATE, field, args);
+    double_obj = _yr_object_lookup(object, OBJECT_CREATE, field, args);
   else
     double_obj = object;
 
   va_end(args);
 
-  assert(double_obj != NULL);
+  if (double_obj == NULL)
+  {
+    if (field != NULL)
+      return ERROR_INSUFFICIENT_MEMORY;
+    else
+      return ERROR_INVALID_ARGUMENT;
+  }
+
   assert(double_obj->type == OBJECT_TYPE_FLOAT);
 
-  ((YR_OBJECT_DOUBLE*) double_obj)->value = value;
+  double_obj->value.d = value;
 
   return ERROR_SUCCESS;
 }
@@ -1021,40 +1049,48 @@ int yr_object_set_string(
     const char* field,
     ...)
 {
-  YR_OBJECT_STRING* string_obj;
+  YR_OBJECT* string_obj;
 
   va_list args;
   va_start(args, field);
 
   if (field != NULL)
-    string_obj = (YR_OBJECT_STRING*) _yr_object_lookup(
-        object, OBJECT_CREATE, field, args);
+    string_obj = _yr_object_lookup(object, OBJECT_CREATE, field, args);
   else
-    string_obj = (YR_OBJECT_STRING*) object;
+    string_obj = object;
 
   va_end(args);
 
-  assert(string_obj != NULL);
+  if (string_obj == NULL)
+  {
+    if (field != NULL)
+      return ERROR_INSUFFICIENT_MEMORY;
+    else
+      return ERROR_INVALID_ARGUMENT;
+  }
+
   assert(string_obj->type == OBJECT_TYPE_STRING);
 
-  if (string_obj->value != NULL)
-    yr_free(string_obj->value);
+  if (string_obj->value.ss != NULL)
+    yr_free(string_obj->value.ss);
 
   if (value != NULL)
   {
-    string_obj->value = (SIZED_STRING*) yr_malloc(len + sizeof(SIZED_STRING));
+    string_obj->value.ss = (SIZED_STRING*) yr_malloc(
+        len + sizeof(SIZED_STRING));
 
-    if (string_obj->value == NULL)
-      return ERROR_INSUFICIENT_MEMORY;
+    if (string_obj->value.ss == NULL)
+      return ERROR_INSUFFICIENT_MEMORY;
 
-    string_obj->value->length = len;
-    string_obj->value->flags = 0;
+    string_obj->value.ss->length = (uint32_t) len;
+    string_obj->value.ss->flags = 0;
 
-    memcpy(string_obj->value->c_string, value, len);
+    memcpy(string_obj->value.ss->c_string, value, len);
+    string_obj->value.ss->c_string[len] = '\0';
   }
   else
   {
-    string_obj->value = NULL;
+    string_obj->value.ss = NULL;
   }
 
   return ERROR_SUCCESS;
@@ -1084,7 +1120,7 @@ YR_API void yr_object_print_data(
   char indent_spaces[32];
   int i;
 
-  indent = yr_min(indent, sizeof(indent_spaces));
+  indent = yr_min(indent, sizeof(indent_spaces) - 1);
 
   memset(indent_spaces, '\t', indent);
   indent_spaces[indent] = '\0';
@@ -1095,21 +1131,24 @@ YR_API void yr_object_print_data(
   switch(object->type)
   {
     case OBJECT_TYPE_INTEGER:
-      if (((YR_OBJECT_INTEGER*) object)->value != UNDEFINED)
-        printf(" = %" PRIu64, ((YR_OBJECT_INTEGER*) object)->value);
+
+      if (object->value.i != UNDEFINED)
+        printf(" = %" PRId64, object->value.i);
       else
         printf(" = UNDEFINED");
+
       break;
 
     case OBJECT_TYPE_STRING:
-      if (((YR_OBJECT_STRING*) object)->value != NULL)
+
+      if (object->value.ss != NULL)
       {
         size_t l;
         printf(" = \"");
 
-        for (l = 0; l < ((YR_OBJECT_STRING*) object)->value->length; l++)
+        for (l = 0; l < object->value.ss->length; l++)
         {
-          char c = ((YR_OBJECT_STRING*) object)->value->c_string[l];
+          char c = object->value.ss->c_string[l];
 
           if (isprint((unsigned char) c))
             printf("%c", c);
@@ -1128,7 +1167,7 @@ YR_API void yr_object_print_data(
 
     case OBJECT_TYPE_STRUCTURE:
 
-      member = ((YR_OBJECT_STRUCTURE*) object)->members;
+      member = object_as_structure(object)->members;
 
       while (member != NULL)
       {
@@ -1143,7 +1182,8 @@ YR_API void yr_object_print_data(
       break;
 
     case OBJECT_TYPE_ARRAY:
-      array_items = ((YR_OBJECT_ARRAY*) object)->items;
+
+      array_items = object_as_array(object)->items;
 
       if (array_items != NULL)
       {
@@ -1161,7 +1201,7 @@ YR_API void yr_object_print_data(
 
     case OBJECT_TYPE_DICTIONARY:
 
-      dict_items = ((YR_OBJECT_DICTIONARY*) object)->items;
+      dict_items = object_as_dictionary(object)->items;
 
       if (dict_items != NULL)
       {
