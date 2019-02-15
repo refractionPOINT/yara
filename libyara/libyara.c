@@ -284,6 +284,10 @@ YR_API int yr_initialize(void)
 
   ...
 
+#elif defined(HAVE_MBEDTLS)
+
+// Nothing to initialize.
+
 #endif
 
   FAIL_ON_ERROR(yr_modules_initialize());
@@ -335,6 +339,8 @@ YR_API int yr_finalize(void)
 #elif defined(HAVE_WINCRYPT_H)
 
   CryptReleaseContext(yr_cryptprov, 0);
+
+#elif defined(HAVE_MBEDTLS)
 
 #endif
 

@@ -2145,7 +2145,7 @@ define_function(exports_index_regex)
 }
 
 #if defined(HAVE_LIBCRYPTO) || defined(HAVE_WINCRYPT_H) || \
-    defined(HAVE_COMMONCRYPTO_COMMONCRYPTO_H)
+    defined(HAVE_COMMONCRYPTO_COMMONCRYPTO_H) || defined(HAVE_MBEDTLS)
 
 //
 // Generate an import hash:
@@ -2271,7 +2271,7 @@ define_function(imphash)
   return_string(digest_ascii);
 }
 
-#endif  // defined(HAVE_LIBCRYPTO) || defined(HAVE_WINCRYPT_H)
+#endif  // defined(HAVE_LIBCRYPTO) || defined(HAVE_WINCRYPT_H) || defined(HAVE_MBEDTLS)
 
 define_function(imports)
 {
@@ -2861,7 +2861,7 @@ begin_declarations
   end_struct("rich_signature");
 
 #if defined(HAVE_LIBCRYPTO) || defined(HAVE_WINCRYPT_H) || \
-    defined(HAVE_COMMONCRYPTO_COMMONCRYPTO_H)
+    defined(HAVE_COMMONCRYPTO_COMMONCRYPTO_H) || defined(HAVE_MBEDTLS)
   declare_function("imphash", "", "s", imphash);
 #endif
 

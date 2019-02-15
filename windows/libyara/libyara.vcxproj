@@ -72,10 +72,10 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4005;4273;4090;</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_WINCRYPT_H;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
@@ -90,10 +90,10 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4005;4273;4090;</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_WINCRYPT_H;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
@@ -108,10 +108,10 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4005;4273;4090;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_WINCRYPT_H;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
     </ClCompile>
     <Lib>
@@ -125,10 +125,10 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4005;4273;4090;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_WINCRYPT_H;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
     </ClCompile>
     <Lib>
@@ -181,6 +181,53 @@
     <ClCompile Include="..\..\libyara\stream.c" />
     <ClCompile Include="..\..\libyara\strutils.c" />
     <ClCompile Include="..\..\libyara\threading.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\mbedtls\mbedtls-2.1.2\visualc\VS2010\mbedTLS.vcxproj">
+      <Project>{46cf2d25-6a36-4189-b59c-e4815388e554}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\libyara\include\yara\ahocorasick.h" />
+    <ClInclude Include="..\..\libyara\include\yara\arena.h" />
+    <ClInclude Include="..\..\libyara\include\yara\atoms.h" />
+    <ClInclude Include="..\..\libyara\include\yara\bitmask.h" />
+    <ClInclude Include="..\..\libyara\include\yara\compiler.h" />
+    <ClInclude Include="..\..\libyara\include\yara\dex.h" />
+    <ClInclude Include="..\..\libyara\include\yara\dotnet.h" />
+    <ClInclude Include="..\..\libyara\include\yara\elf.h" />
+    <ClInclude Include="..\..\libyara\include\yara\endian.h" />
+    <ClInclude Include="..\..\libyara\include\yara\error.h" />
+    <ClInclude Include="..\..\libyara\include\yara\exec.h" />
+    <ClInclude Include="..\..\libyara\include\yara\exefiles.h" />
+    <ClInclude Include="..\..\libyara\include\yara\filemap.h" />
+    <ClInclude Include="..\..\libyara\include\yara\globals.h" />
+    <ClInclude Include="..\..\libyara\include\yara\hash.h" />
+    <ClInclude Include="..\..\libyara\include\yara\hex_lexer.h" />
+    <ClInclude Include="..\..\libyara\include\yara\integers.h" />
+    <ClInclude Include="..\..\libyara\include\yara\lexer.h" />
+    <ClInclude Include="..\..\libyara\include\yara\libyara.h" />
+    <ClInclude Include="..\..\libyara\include\yara\limits.h" />
+    <ClInclude Include="..\..\libyara\include\yara\macho.h" />
+    <ClInclude Include="..\..\libyara\include\yara\mem.h" />
+    <ClInclude Include="..\..\libyara\include\yara\modules.h" />
+    <ClInclude Include="..\..\libyara\include\yara\object.h" />
+    <ClInclude Include="..\..\libyara\include\yara\parser.h" />
+    <ClInclude Include="..\..\libyara\include\yara\pe.h" />
+    <ClInclude Include="..\..\libyara\include\yara\pe_utils.h" />
+    <ClInclude Include="..\..\libyara\include\yara\proc.h" />
+    <ClInclude Include="..\..\libyara\include\yara\re.h" />
+    <ClInclude Include="..\..\libyara\include\yara\re_lexer.h" />
+    <ClInclude Include="..\..\libyara\include\yara\rules.h" />
+    <ClInclude Include="..\..\libyara\include\yara\scan.h" />
+    <ClInclude Include="..\..\libyara\include\yara\scanner.h" />
+    <ClInclude Include="..\..\libyara\include\yara\sizedstr.h" />
+    <ClInclude Include="..\..\libyara\include\yara\stopwatch.h" />
+    <ClInclude Include="..\..\libyara\include\yara\stream.h" />
+    <ClInclude Include="..\..\libyara\include\yara\strutils.h" />
+    <ClInclude Include="..\..\libyara\include\yara\threading.h" />
+    <ClInclude Include="..\..\libyara\include\yara\types.h" />
+    <ClInclude Include="..\..\libyara\include\yara\utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
