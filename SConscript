@@ -67,7 +67,7 @@ class LibYara( profiles.Component ):
         super( LibYara, self ).__init__(
                 "libyara",
                 None,
-                LIBS = [ "libyara" ] + ( [] if env[ 'PLATFORM' ][ 'name' ] == 'macosx' else [ "crypto" ] ),
+                LIBS = [ "libyara" ] + ( [] if env[ 'PLATFORM' ][ 'name' ] == 'macosx' else [ File("/usr/lib/libcrypto.a") ] ),
                 )
         self.node = node
 
