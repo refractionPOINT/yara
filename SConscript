@@ -35,7 +35,7 @@ def BuildLibYara( target, source, env ):
         target_host = ' --host ' + target_host
 
     run( './bootstrap.sh' )
-    run( './configure --enable-static --disable-cuckoo %s%s' % ( '' if env[ 'PLATFORM' ][ 'name' ] == 'macosx' else '--with-crypto', target_host ) )
+    run( './configure --enable-static --without-crypto --disable-cuckoo %s%s' % ( target_host, ) )
     run( 'make' )
 
     shutil.copyfile( os.path.join( Dir("#.").abspath, env[ 'BUILD_DIR' ], 'lib', 'yara', 'libyara', '.libs', 'libyara.a' ),
@@ -67,7 +67,7 @@ class LibYara( profiles.Component ):
         super( LibYara, self ).__init__(
                 "libyara",
                 None,
-                LIBS = [ "libyara" ] + ( [] if env[ 'PLATFORM' ][ 'name' ] == 'macosx' else [ File("/usr/lib/libcrypto.a") ] ),
+                LIBS = [ "libyara" ],
                 )
         self.node = node
 
