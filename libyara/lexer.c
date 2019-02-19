@@ -3456,7 +3456,8 @@ void yywarning(
   else
     file_name = NULL;
 
-  vsnprintf(message, sizeof(message), message_fmt, message_args);
+  // Moving vsnprint to _vsnprintf to be compatible with DDK.
+  _vsnprintf( message, sizeof( message ), message_fmt, message_args );
 
   YR_RULE* current_rule = NULL;
 

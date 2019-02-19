@@ -75,7 +75,7 @@
       <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4005;4273;4090;</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;NO_RPAL</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_WINCRYPT_H;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
@@ -93,7 +93,7 @@
       <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4005;4273;4090;</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;NO_RPAL</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_WINCRYPT_H;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
@@ -111,7 +111,7 @@
       <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4005;4273;4090;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;NO_RPAL</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_WINCRYPT_H;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
     </ClCompile>
     <Lib>
@@ -128,7 +128,7 @@
       <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4005;4273;4090;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;NO_RPAL</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_WINCRYPT_H;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
     </ClCompile>
     <Lib>
