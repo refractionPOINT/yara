@@ -43,6 +43,27 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "crypto.h"
 
+#ifndef strerror_r
+#include <errno.h>
+#include <stdio.h>
+#ifndef errno_t
+typedef int errno_t;
+#endif
+errno_t strerror_s( char *buf, size_t len, int errnum )
+{
+    if( NULL == buf )
+    {
+        return ERANGE;
+    }
+    if( len < _snprintf( buf, len, "%s", strerror( errnum ) ) >= len )
+    {
+        return ERANGE;
+    }
+
+    return 0;
+}
+#endif
+
 #if defined(_WIN32) || defined(__CYGWIN__)
 #if !defined(_MSC_VER) || (defined(_MSC_VER) && (_MSC_VER < 1900))
 #define snprintf _snprintf

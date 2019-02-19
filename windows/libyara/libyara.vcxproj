@@ -72,16 +72,16 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;C:\openssl-1.1.0f-vs2010\include64\</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4005;4273;4090;</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_WINCRYPT_H;NO_RPAL</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_LIBCRYPTO;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMDd.lib;crypt32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\openssl-1.1.0f-vs2010\lib;..\lib</AdditionalLibraryDirectories>
     </Lib>
     <Link>
       <AdditionalLibraryDirectories>..\lib</AdditionalLibraryDirectories>
@@ -90,16 +90,16 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;C:\openssl-1.1.0f-vs2010\include64\</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4005;4273;4090;</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_WINCRYPT_H;NO_RPAL</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_LIBCRYPTO;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMDd.lib;crypt32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\lib;C:\openssl-1.1.0f-vs2010\lib64</AdditionalLibraryDirectories>
     </Lib>
     <Link>
       <AdditionalLibraryDirectories>..\lib</AdditionalLibraryDirectories>
@@ -108,15 +108,15 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;C:\openssl-1.1.0f-vs2010\include\</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4005;4273;4090;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_WINCRYPT_H;NO_RPAL</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_LIBCRYPTO;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMD.lib;crypt32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\openssl-1.1.0f-vs2010\lib;..\lib</AdditionalLibraryDirectories>
     </Lib>
     <Link>
       <AdditionalDependencies>advapi32.lib;jansson32.lib;libeay32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -125,15 +125,15 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;C:\openssl-1.1.0f-vs2010\include\</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4005;4273;4090;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_WINCRYPT_H;NO_RPAL</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_LIBCRYPTO;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMD.lib;crypt32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\lib;C:\openssl-1.1.0f-vs2010\lib64</AdditionalLibraryDirectories>
     </Lib>
     <Link>
       <AdditionalLibraryDirectories>..\lib</AdditionalLibraryDirectories>
