@@ -80,7 +80,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMDd.lib;crypt32.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMT.lib;crypt32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\openssl-1.1.0f-vs2010\lib;..\lib</AdditionalLibraryDirectories>
       <AdditionalOptions>/ignore:4006 /ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
@@ -99,7 +99,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMDd.lib;crypt32.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMT.lib;crypt32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\lib;C:\openssl-1.1.0f-vs2010\lib64</AdditionalLibraryDirectories>
       <AdditionalOptions>/ignore:4006 /ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
@@ -117,7 +117,7 @@
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMD.lib;crypt32.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMT.lib;crypt32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\openssl-1.1.0f-vs2010\lib;..\lib</AdditionalLibraryDirectories>
       <AdditionalOptions>/ignore:4006 /ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
@@ -135,7 +135,7 @@
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMD.lib;crypt32.lib</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMT.lib;crypt32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\lib;C:\openssl-1.1.0f-vs2010\lib64</AdditionalLibraryDirectories>
       <AdditionalOptions>/ignore:4006 /ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
