@@ -3456,8 +3456,12 @@ void yywarning(
   else
     file_name = NULL;
 
+#ifdef _WIN32
   // Moving vsnprint to _vsnprintf to be compatible with DDK.
   _vsnprintf( message, sizeof( message ), message_fmt, message_args );
+#else
+  vsnprintf( message, sizeof( message ), message_fmt, message_args );
+#endif
 
   YR_RULE* current_rule = NULL;
 

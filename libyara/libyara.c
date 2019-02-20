@@ -43,7 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "crypto.h"
 
-#ifndef strerror_r
+#ifdef _WIN32
 #include <errno.h>
 #include <stdio.h>
 #ifndef errno_t
