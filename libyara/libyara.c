@@ -46,9 +46,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef _WIN32
 #include <errno.h>
 #include <stdio.h>
-#ifndef errno_t
 typedef int errno_t;
-#endif
 errno_t strerror_s( char *buf, size_t len, int errnum )
 {
     if( NULL == buf )
@@ -62,6 +60,12 @@ errno_t strerror_s( char *buf, size_t len, int errnum )
 
     return 0;
 }
+
+#ifndef WIN64
+long _ftol( double );
+long _ftol2_sse( double dblSource ) { return _ftol( dblSource ); }
+#endif
+
 #endif
 
 #if defined(_WIN32) || defined(__CYGWIN__)

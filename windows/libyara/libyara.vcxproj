@@ -80,8 +80,8 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMT.lib;crypt32.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\openssl-1.1.0f-vs2010\lib;..\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMT.lib;crypt32.lib;alloca16.obj</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\openssl-1.1.0f-vs2010\lib;..\lib;$(SolutionDir)\..\include\windows_supplemental</AdditionalLibraryDirectories>
       <AdditionalOptions>/ignore:4006 /ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <Link>
@@ -117,8 +117,8 @@
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMT.lib;crypt32.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\openssl-1.1.0f-vs2010\lib;..\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies);libcryptoMT.lib;crypt32.lib;alloca16.obj</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\openssl-1.1.0f-vs2010\lib;..\lib;$(SolutionDir)\..\include\windows_supplemental</AdditionalLibraryDirectories>
       <AdditionalOptions>/ignore:4006 /ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <Link>
