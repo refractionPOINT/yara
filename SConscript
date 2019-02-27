@@ -34,8 +34,14 @@ def BuildLibYara( target, source, env ):
     else:
         target_host = ' --host ' + target_host
 
+    if 'arm' in env[ 'PLATFORM' ][ 'arch' ]:
+        # OpenSSL does not currently compile on ARM in our build.
+        aboutCrypto = '--without-crypto'
+    else:
+        aboutCrypto = '--with-crypto'
+
     run( './bootstrap.sh' )
-    run( './configure --enable-static --with-crypto --disable-cuckoo%s' % ( target_host, ) )
+    run( './configure --enable-static %s --disable-cuckoo%s' % ( aboutCrypto, target_host, ) )
     run( 'make' )
 
     shutil.copyfile( os.path.join( Dir("#.").abspath, env[ 'BUILD_DIR' ], 'lib', 'yara', 'libyara', '.libs', 'libyara.a' ),
