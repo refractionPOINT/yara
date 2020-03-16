@@ -34,6 +34,8 @@ def BuildLibYara( target, source, env ):
     else:
         target_host = ' --host ' + target_host
 
+    if 'arm' in env[ 'PLATFORM' ][ 'arch' ]:
+        target_host += ' CFLAGS="-I%s/include" LDFLAGS="-L%s/lib"' % ( env[ 'openssl_dir' ], env[ 'openssl_dir' ] )
     aboutCrypto = '--with-crypto'
 
     run( './bootstrap.sh' )
