@@ -36,7 +36,9 @@ def BuildLibYara( target, source, env ):
 
     if 'arm' in env[ 'PLATFORM' ][ 'arch' ]:
         target_host += ' CFLAGS="-I%s/include" LDFLAGS="-L%s/lib"' % ( env[ 'openssl_dir' ], env[ 'openssl_dir' ] )
-    aboutCrypto = '--with-crypto'
+        aboutCrypto = '--without-crypto'
+    else:
+        aboutCrypto = '--with-crypto'
 
     run( './bootstrap.sh' )
     run( './configure --enable-static %s --disable-cuckoo%s' % ( aboutCrypto, target_host, ) )
