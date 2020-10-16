@@ -15,7 +15,7 @@ def run(cmd):
     if (os.WIFEXITED(res)):
         code = os.WEXITSTATUS(res)
         if code != 0:
-            print "Error: return code: " + str(code)
+            print("Error: return code: " + str(code))
             sys.exit(code)
 
 def BuildLibYara( target, source, env ):
