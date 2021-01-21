@@ -41,7 +41,7 @@ def BuildLibYara( target, source, env ):
         aboutCrypto = '--with-crypto'
 
     run( './bootstrap.sh' )
-    run( './configure --enable-static %s --disable-cuckoo%s' % ( aboutCrypto, target_host, ) )
+    run( './configure --enable-static --disable-shared %s --disable-cuckoo%s' % ( aboutCrypto, target_host, ) )
     run( 'make' )
 
     shutil.copyfile( os.path.join( Dir("#.").abspath, env[ 'BUILD_DIR' ], 'lib', 'yara', 'libyara', '.libs', 'libyara.a' ),
