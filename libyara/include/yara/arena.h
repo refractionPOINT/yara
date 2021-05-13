@@ -39,9 +39,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define YR_ARENA_FILE_VERSION 18
 
-#define YR_ARENA_NULL_REF \
-  (YR_ARENA_REF) { UINT32_MAX, UINT32_MAX }
-
 #define YR_ARENA_IS_NULL_REF(ref) \
   (memcmp(&(ref), &YR_ARENA_NULL_REF, sizeof(YR_ARENA_NULL_REF)) == 0)
 
@@ -71,6 +68,12 @@ struct YR_ARENA_REF
 };
 
 #pragma pack(pop)
+
+// Create a global reference to a NULL arena
+// to satisfy the YR_ARENA_NULL_REF macro and C89.
+extern YR_ARENA_REF _globalNullArenaRef;
+#define YR_ARENA_NULL_REF \
+  _globalNullArenaRef
 
 struct YR_ARENA_BUFFER
 {

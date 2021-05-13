@@ -82,7 +82,9 @@ const char* _yr_compiler_default_include_callback(
   int fd = -1;
 
 #if defined(_MSC_VER)
-  fd = _sopen(include_name, _O_RDONLY | _O_BINARY, _SH_DENYRW, _S_IREAD);
+  // Use older sopen function available in all CRTs.
+  fd = _sopen(include_name, _O_RDONLY | _O_BINARY, _SH_DENYWR, _S_IREAD);
+  //_sopen_s(&fd, include_name, _O_RDONLY | _O_BINARY, _SH_DENYWR, _S_IREAD);
 #elif defined(_WIN32) || defined(__CYGWIN__)
   fd = open(include_name, O_RDONLY | O_BINARY);
 #else
@@ -282,6 +284,8 @@ YR_API int yr_compiler_create(YR_COMPILER** compiler)
 
 YR_API void yr_compiler_destroy(YR_COMPILER* compiler)
 {
+  int i;
+  YR_FIXUP* fixup;
   yr_arena_release(compiler->arena);
 
   if (compiler->automaton != NULL)
@@ -300,10 +304,10 @@ YR_API void yr_compiler_destroy(YR_COMPILER* compiler)
   if (compiler->atoms_config.free_quality_table)
     yr_free(compiler->atoms_config.quality_table);
 
-  for (int i = 0; i < compiler->file_name_stack_ptr; i++)
+  for (i = 0; i < compiler->file_name_stack_ptr; i++)
     yr_free(compiler->file_name_stack[i]);
 
-  YR_FIXUP* fixup = compiler->fixup_stack_head;
+  fixup = compiler->fixup_stack_head;
 
   while (fixup != NULL)
   {
@@ -508,8 +512,9 @@ static int _yr_compiler_set_namespace(
       compiler->arena, YR_NAMESPACES_TABLE, 0);
 
   bool found = false;
+  int i;
 
-  for (int i = 0; i < compiler->num_namespaces; i++, ns++)
+  for (i = 0; i < compiler->num_namespaces; i++, ns++)
   {
     if (strcmp(ns->name, namespace_) == 0)
     {
@@ -645,6 +650,8 @@ static int _yr_compiler_compile_rules(YR_COMPILER* compiler)
 {
   YR_RULE null_rule;
   YR_EXTERNAL_VARIABLE null_external;
+  YR_ARENA_REF ref;
+  YR_SUMMARY* summary;
 
   uint8_t halt = OP_HALT;
 
@@ -673,12 +680,10 @@ static int _yr_compiler_compile_rules(YR_COMPILER* compiler)
   // Write Aho-Corasick automaton to arena.
   FAIL_ON_ERROR(yr_ac_compile(compiler->automaton, compiler->arena));
 
-  YR_ARENA_REF ref;
-
   FAIL_ON_ERROR(yr_arena_allocate_struct(
       compiler->arena, YR_SUMMARY_SECTION, sizeof(YR_SUMMARY), &ref, EOL));
 
-  YR_SUMMARY* summary = (YR_SUMMARY*) yr_arena_ref_to_ptr(
+  summary = (YR_SUMMARY*) yr_arena_ref_to_ptr(
       compiler->arena, &ref);
 
   summary->num_namespaces = compiler->num_namespaces;
@@ -710,6 +715,8 @@ static int _yr_compiler_define_variable(
 {
   YR_EXTERNAL_VARIABLE* ext;
   YR_OBJECT* object;
+  YR_ARENA_REF ext_ref;
+  YR_ARENA_REF ref;
 
   if (external->identifier == NULL)
     return ERROR_INVALID_ARGUMENT;
@@ -719,9 +726,6 @@ static int _yr_compiler_define_variable(
 
   if (object != NULL)
     return ERROR_DUPLICATED_EXTERNAL_VARIABLE;
-
-  YR_ARENA_REF ext_ref;
-  YR_ARENA_REF ref;
 
   FAIL_ON_ERROR(yr_arena_allocate_struct(
       compiler->arena,

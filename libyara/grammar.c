@@ -156,7 +156,8 @@
 #define loop_vars_cleanup(loop_index) \
     {  \
       YR_LOOP_CONTEXT* loop_ctx = &compiler->loop[loop_index]; \
-      for (int i = 0; i < loop_ctx->vars_count; i++) \
+      int i; \
+      for (i = 0; i < loop_ctx->vars_count; i++) \
       { \
         yr_free((void*) loop_ctx->vars[i].identifier.ptr); \
         loop_ctx->vars[i].identifier.ptr = NULL; \
@@ -1953,6 +1954,8 @@ yyreduce:
 #line 463 "grammar.y" /* yacc.c:1663  */
     {
         YR_ARENA_REF ref;
+        char* new_tag;
+        char* tag;
 
         // Write the new tag identifier.
         int result = yr_arena_write_string(
@@ -1963,11 +1966,11 @@ yyreduce:
         fail_if_error(result);
 
         // Get the address for the tag identifier just written.
-        char* new_tag = (char*) yr_arena_ref_to_ptr(
+        new_tag = (char*) yr_arena_ref_to_ptr(
             compiler->arena, &ref);
 
         // Take the address of first tag's identifier in the list.
-        char* tag = (char*) yr_arena_ref_to_ptr(
+        tag = (char*) yr_arena_ref_to_ptr(
             compiler->arena, &(yyval.tag));
 
         // Search for duplicated tags. Tags are written one after
@@ -2560,6 +2563,7 @@ yyreduce:
 
             if (rule_idx != UINT32_MAX)
             {
+              YR_RULE* rule;
               result = yr_parser_emit_with_arg(
                   yyscanner,
                   OP_PUSH_RULE,
@@ -2567,7 +2571,7 @@ yyreduce:
                   NULL,
                   NULL);
 
-              YR_RULE* rule = _yr_compiler_get_rule_by_idx(compiler, rule_idx);
+              rule = _yr_compiler_get_rule_by_idx(compiler, rule_idx);
 
               yr_arena_ptr_to_ref(compiler->arena, rule->identifier, &(yyval.expression).identifier.ref);
 
@@ -3104,8 +3108,9 @@ yyreduce:
         // parsing the inner loop, it will be propagated to the outer loop
         // anyways, so it's safe to do this cleanup while processing the error
         // for the inner loop.
+        int i;
 
-        for (int i = 0; i <= compiler->loop_index; i++)
+        for (i = 0; i <= compiler->loop_index; i++)
         {
           loop_vars_cleanup(i);
         }
@@ -3168,6 +3173,7 @@ yyreduce:
         YR_ARENA_REF jmp_offset_ref;
 
         int var_frame = _yr_compiler_get_var_frame(compiler);
+        int i;
 
         fail_if_error(yr_parser_emit(
             yyscanner, OP_ITER_NEXT, &loop_start_ref));
@@ -3177,7 +3183,7 @@ yyreduce:
         // YR_INTERNAL_LOOP_VARS because the first YR_INTERNAL_LOOP_VARS slots
         // in the frame are for the internal variables.
 
-        for (int i = 0; i < loop_ctx->vars_count; i++)
+        for (i = 0; i < loop_ctx->vars_count; i++)
         {
           fail_if_error(yr_parser_emit_with_arg(
               yyscanner,
@@ -3218,6 +3224,7 @@ yyreduce:
         YR_FIXUP* fixup;
         YR_ARENA_REF pop_ref;
         YR_ARENA_REF jmp_offset_ref;
+        int32_t* jmp_offset_addr;
 
         int var_frame = _yr_compiler_get_var_frame(compiler);
 
@@ -3282,7 +3289,7 @@ yyreduce:
 
         // The fixup entry has a reference to the jump offset that need
         // to be fixed, convert the address into a pointer.
-        int32_t* jmp_offset_addr = (int32_t*) yr_arena_ref_to_ptr(
+        jmp_offset_addr = (int32_t*) yr_arena_ref_to_ptr(
             compiler->arena, &fixup->ref);
 
         // The reference in the fixup entry points to the jump's offset
@@ -3368,6 +3375,7 @@ yyreduce:
 #line 1714 "grammar.y" /* yacc.c:1663  */
     {
         int var_frame = 0;
+        int32_t jmp_offset;
 
         compiler->loop_for_of_var_index = -1;
 
@@ -3384,7 +3392,7 @@ yyreduce:
         yr_parser_emit_with_arg(
             yyscanner, OP_INCR_M, var_frame + 2, NULL, NULL);
 
-        int32_t jmp_offset = \
+        jmp_offset = \
             compiler->loop[compiler->loop_index].start_ref.offset -
             yr_arena_get_current_offset(compiler->arena, YR_CODE_SECTION);
 
@@ -3473,15 +3481,17 @@ yyreduce:
 #line 1803 "grammar.y" /* yacc.c:1663  */
     {
         YR_FIXUP* fixup;
+        int32_t* jmp_offset_addr;
+        int32_t jmp_offset;
 
         fail_if_error(yr_parser_emit(yyscanner, OP_AND, NULL));
 
         fixup = compiler->fixup_stack_head;
 
-        int32_t* jmp_offset_addr = (int32_t*) yr_arena_ref_to_ptr(
+        jmp_offset_addr = (int32_t*) yr_arena_ref_to_ptr(
             compiler->arena, &fixup->ref);
 
-        int32_t jmp_offset = \
+        jmp_offset = \
             yr_arena_get_current_offset(compiler->arena, YR_CODE_SECTION) -
             fixup->ref.offset + 1;
 
@@ -3525,16 +3535,18 @@ yyreduce:
 #line 1847 "grammar.y" /* yacc.c:1663  */
     {
         YR_FIXUP* fixup;
+        int32_t jmp_offset;
+        int32_t* jmp_offset_addr;
 
         fail_if_error(yr_parser_emit(yyscanner, OP_OR, NULL));
 
         fixup = compiler->fixup_stack_head;
 
-        int32_t jmp_offset = \
+        jmp_offset = \
             yr_arena_get_current_offset(compiler->arena, YR_CODE_SECTION) -
             fixup->ref.offset + 1;
 
-        int32_t* jmp_offset_addr = (int32_t*) yr_arena_ref_to_ptr(
+        jmp_offset_addr = (int32_t*) yr_arena_ref_to_ptr(
             compiler->arena, &fixup->ref);
 
         *jmp_offset_addr = jmp_offset;

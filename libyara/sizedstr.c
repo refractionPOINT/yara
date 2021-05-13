@@ -100,10 +100,11 @@ bool ss_contains(SIZED_STRING* s1, SIZED_STRING* s2)
 //
 bool ss_icontains(SIZED_STRING* s1, SIZED_STRING* s2)
 {
+  uint32_t i;
   if (s1->length < s2->length)
     return false;
 
-  for (uint32_t i = 0; i < s1->length - s2->length + 1; i++)
+  for (i = 0; i < s1->length - s2->length + 1; i++)
   {
     uint32_t j = 0;
 
@@ -124,10 +125,11 @@ bool ss_icontains(SIZED_STRING* s1, SIZED_STRING* s2)
 //
 bool ss_startswith(SIZED_STRING* s1, SIZED_STRING* s2)
 {
+  uint32_t i;
   if (s1->length < s2->length)
     return false;
 
-  for (uint32_t i = 0; i < s2->length; i++)
+  for (i = 0; i < s2->length; i++)
   {
     if (s1->c_string[i] != s2->c_string[i])
       return false;
@@ -141,10 +143,11 @@ bool ss_startswith(SIZED_STRING* s1, SIZED_STRING* s2)
 //
 bool ss_istartswith(SIZED_STRING* s1, SIZED_STRING* s2)
 {
+  uint32_t i;
   if (s1->length < s2->length)
     return false;
 
-  for (uint32_t i = 0; i < s2->length; i++)
+  for (i = 0; i < s2->length; i++)
   {
     if (yr_lowercase[(uint8_t) s1->c_string[i]] !=
         yr_lowercase[(uint8_t) s2->c_string[i]])
@@ -159,10 +162,11 @@ bool ss_istartswith(SIZED_STRING* s1, SIZED_STRING* s2)
 //
 bool ss_endswith(SIZED_STRING* s1, SIZED_STRING* s2)
 {
+  uint32_t i;
   if (s1->length < s2->length)
     return false;
 
-  for (uint32_t i = 0; i < s2->length; i++)
+  for (i = 0; i < s2->length; i++)
   {
     if (s1->c_string[s1->length - s2->length + i] != s2->c_string[i])
       return false;
@@ -176,10 +180,11 @@ bool ss_endswith(SIZED_STRING* s1, SIZED_STRING* s2)
 //
 bool ss_iendswith(SIZED_STRING* s1, SIZED_STRING* s2)
 {
+  uint32_t i;
   if (s1->length < s2->length)
     return false;
 
-  for (uint32_t i = 0; i < s2->length; i++)
+  for (i = 0; i < s2->length; i++)
   {
     if (yr_lowercase[(uint8_t) s1->c_string[s1->length - s2->length + i]] !=
         yr_lowercase[(uint8_t) s2->c_string[i]])
@@ -239,11 +244,12 @@ SIZED_STRING* ss_convert_to_wide(SIZED_STRING* s)
 {
   SIZED_STRING* wide = (SIZED_STRING*) yr_malloc(
       sizeof(SIZED_STRING) + s->length * 2);
+  size_t i;
 
   if (wide == NULL)
     return NULL;
 
-  for (size_t i = 0; i < s->length; i++)
+  for (i = 0; i < s->length; i++)
   {
     wide->c_string[i * 2] = s->c_string[i];
     wide->c_string[i * 2 + 1] = '\x00';

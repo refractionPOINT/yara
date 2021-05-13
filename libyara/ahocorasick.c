@@ -442,16 +442,19 @@ static int _yr_ac_find_suitable_transition_table_slot(
 
   if (*slot > automaton->tables_size - 257)
   {
+    size_t bm_len;
+    size_t bm_len_incr;
+
     FAIL_ON_ERROR(yr_arena_allocate_zeroed_memory(
         arena, YR_AC_TRANSITION_TABLE, 257 * sizeof(YR_AC_TRANSITION), NULL));
 
     FAIL_ON_ERROR(yr_arena_allocate_zeroed_memory(
         arena, YR_AC_STATE_MATCHES_TABLE, 257 * sizeof(uint8_t*), NULL));
 
-    size_t bm_len = YR_BITMASK_SIZE(automaton->tables_size) *
+    bm_len = YR_BITMASK_SIZE(automaton->tables_size) *
                     sizeof(YR_BITMASK);
 
-    size_t bm_len_incr = YR_BITMASK_SIZE(257) * sizeof(YR_BITMASK);
+    bm_len_incr = YR_BITMASK_SIZE(257) * sizeof(YR_BITMASK);
 
     automaton->bitmask = yr_realloc(automaton->bitmask, bm_len + bm_len_incr);
 
@@ -654,8 +657,9 @@ static void _yr_ac_print_automaton_state(
 
   YR_AC_MATCH* match;
   YR_AC_STATE* child_state;
+  int i;
 
-  for (int i = 0; i < state->depth; i++) printf(" ");
+  for (i = 0; i < state->depth; i++) printf(" ");
 
   child_state = state->first_child;
   child_count = 0;
@@ -677,9 +681,10 @@ static void _yr_ac_print_automaton_state(
 
   while (match != NULL)
   {
+    int i;
     printf("\n");
 
-    for (int i = 0; i < state->depth + 1; i++) printf(" ");
+    for (i = 0; i < state->depth + 1; i++) printf(" ");
 
     printf("%s = ", match->string->identifier);
 
@@ -687,7 +692,7 @@ static void _yr_ac_print_automaton_state(
     {
       printf("{ ");
 
-      for (int i = 0; i < yr_min(match->string->length, 10); i++)
+      for (i = 0; i < yr_min(match->string->length, 10); i++)
         printf("%02x ", match->string->string[i]);
 
       printf("}");
@@ -696,7 +701,7 @@ static void _yr_ac_print_automaton_state(
     {
       printf("/");
 
-      for (int i = 0; i < yr_min(match->string->length, 10); i++)
+      for (i = 0; i < yr_min(match->string->length, 10); i++)
         printf("%c", match->string->string[i]);
 
       printf("/");
@@ -705,7 +710,7 @@ static void _yr_ac_print_automaton_state(
     {
       printf("\"");
 
-      for (int i = 0; i < yr_min(match->string->length, 10); i++)
+      for (i = 0; i < yr_min(match->string->length, 10); i++)
         printf("%c", match->string->string[i]);
 
       printf("\"");
@@ -788,8 +793,11 @@ int yr_ac_add_string(
   while (atom != NULL)
   {
     YR_AC_STATE* state = automaton->root;
+    int i;
+    YR_ARENA_REF new_match_ref;
+    YR_AC_MATCH* new_match;
 
-    for (int i = 0; i < atom->atom.length; i++)
+    for (i = 0; i < atom->atom.length; i++)
     {
       YR_AC_STATE* next_state = _yr_ac_next_state(state, atom->atom.bytes[i]);
 
@@ -804,8 +812,6 @@ int yr_ac_add_string(
       state = next_state;
     }
 
-    YR_ARENA_REF new_match_ref;
-
     FAIL_ON_ERROR(yr_arena_allocate_struct(
         arena,
         YR_AC_STATE_MATCHES_POOL,
@@ -817,7 +823,7 @@ int yr_ac_add_string(
         offsetof(YR_AC_MATCH, next),
         EOL));
 
-    YR_AC_MATCH* new_match = yr_arena_ref_to_ptr(arena, &new_match_ref);
+    new_match = yr_arena_ref_to_ptr(arena, &new_match_ref);
 
     new_match->backtrack = state->depth + atom->backtrack;
     new_match->string = yr_arena_get_ptr(

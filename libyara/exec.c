@@ -314,8 +314,6 @@ static int iter_int_enum_next(YR_ITERATOR* self, YR_VALUE_STACK* stack)
 
 int yr_execute_code(YR_SCAN_CONTEXT* context)
 {
-  YR_DEBUG_FPRINTF(2, stderr, "+ %s() {\n", __FUNCTION__);
-
   const uint8_t* ip = context->rules->code_start;
 
   YR_VALUE mem[MEM_SIZE];
@@ -352,8 +350,11 @@ int yr_execute_code(YR_SCAN_CONTEXT* context)
   int obj_count = 0;
 
   bool stop = false;
+  int i;
 
   uint8_t opcode;
+
+  YR_DEBUG_FPRINTF( 2, stderr, "+ %s() {\n", __FUNCTION__ );
 
   yr_get_configuration(YR_CONFIG_STACK_SIZE, (void*) &stack.capacity);
 
@@ -483,11 +484,12 @@ int yr_execute_code(YR_SCAN_CONTEXT* context)
       }
       else
       {
+        int64_t i;
         r3.it->int_enum_it.count = r1.i;
         r3.it->int_enum_it.next = 0;
         r3.it->next = iter_int_enum_next;
 
-        for (int64_t i = r1.i; i > 0; i--)
+        for (i = r1.i; i > 0; i--)
         {
           pop(r2);
           r3.it->int_enum_it.items[i - 1] = r2.i;
@@ -1070,7 +1072,7 @@ int yr_execute_code(YR_SCAN_CONTEXT* context)
       args_fmt = *(char**) (ip);
       ip += sizeof(uint64_t);
 
-      int i = (int) strlen(args_fmt);
+      i = (int) strlen(args_fmt);
       count = 0;
 
 #if YR_PARANOID_EXEC
@@ -1115,7 +1117,7 @@ int yr_execute_code(YR_SCAN_CONTEXT* context)
       function = object_as_function(r2.o);
       result = ERROR_INTERNAL_FATAL_ERROR;
 
-      for (int i = 0; i < YR_MAX_OVERLOADED_FUNCTIONS; i++)
+      for (i = 0; i < YR_MAX_OVERLOADED_FUNCTIONS; i++)
       {
         if (function->prototypes[i].arguments_fmt == NULL)
           break;
@@ -1863,7 +1865,7 @@ int yr_execute_code(YR_SCAN_CONTEXT* context)
 
   obj_ptr = yr_arena_get_ptr(obj_arena, 0, 0);
 
-  for (int i = 0; i < obj_count; i++) yr_object_destroy(obj_ptr[i]);
+  for (i = 0; i < obj_count; i++) yr_object_destroy(obj_ptr[i]);
 
   yr_arena_release(obj_arena);
   yr_notebook_destroy(it_notebook);

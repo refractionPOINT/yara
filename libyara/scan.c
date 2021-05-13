@@ -397,17 +397,6 @@ static int _yr_scan_verify_chained_string_match(
     uint64_t match_offset,
     int32_t match_length)
 {
-  YR_DEBUG_FPRINTF(
-      2,
-      stderr,
-      "- %s (match_data=%p match_base=%" PRIx64 " match_offset=0x%" PRIx64
-      " match_length=%'d) {} \n",
-      __FUNCTION__,
-      match_data,
-      match_base,
-      match_offset,
-      match_length);
-
   YR_STRING* string;
   YR_MATCH* match;
   YR_MATCH* next_match;
@@ -418,6 +407,17 @@ static int _yr_scan_verify_chained_string_match(
   int32_t full_chain_length;
 
   bool add_match = false;
+
+  YR_DEBUG_FPRINTF(
+      2,
+      stderr,
+      "- %s (match_data=%p match_base=%" PRIx64 " match_offset=0x%" PRIx64
+      " match_length=%'d) {} \n",
+      __FUNCTION__,
+      match_data,
+      match_base,
+      match_offset,
+      match_length );
 
   if (matching_string->chained_to == NULL)
   {
@@ -765,6 +765,13 @@ static int _yr_scan_verify_re_match(
     uint64_t data_base,
     size_t offset)
 {
+  CALLBACK_ARGS callback_args;
+  RE_EXEC_FUNC exec;
+
+  int forward_matches = -1;
+  int backward_matches = -1;
+  int flags = 0;
+
   YR_DEBUG_FPRINTF(
       2,
       stderr,
@@ -773,14 +780,7 @@ static int _yr_scan_verify_re_match(
       data,
       data_size,
       data_base,
-      offset);
-
-  CALLBACK_ARGS callback_args;
-  RE_EXEC_FUNC exec;
-
-  int forward_matches = -1;
-  int backward_matches = -1;
-  int flags = 0;
+      offset );
 
   if (STRING_IS_GREEDY_REGEXP(ac_match->string))
     flags |= RE_FLAGS_GREEDY;
@@ -872,6 +872,12 @@ static int _yr_scan_verify_literal_match(
     uint64_t data_base,
     size_t offset)
 {
+  int flags = 0;
+  int forward_matches = 0;
+
+  CALLBACK_ARGS callback_args;
+  YR_STRING* string = ac_match->string;
+
   YR_DEBUG_FPRINTF(
       2,
       stderr,
@@ -880,13 +886,7 @@ static int _yr_scan_verify_literal_match(
       data,
       data_size,
       data_base,
-      offset);
-
-  int flags = 0;
-  int forward_matches = 0;
-
-  CALLBACK_ARGS callback_args;
-  YR_STRING* string = ac_match->string;
+      offset );
 
   if (STRING_FITS_IN_ATOM(string))
   {
@@ -967,6 +967,11 @@ int yr_scan_verify_match(
     uint64_t data_base,
     size_t offset)
 {
+  YR_STRING* string = ac_match->string;
+  YR_CALLBACK_FUNC callback = context->callback;
+
+  int result;
+
   YR_DEBUG_FPRINTF(
       2,
       stderr,
@@ -975,12 +980,7 @@ int yr_scan_verify_match(
       data,
       data_size,
       data_base,
-      offset);
-
-  YR_STRING* string = ac_match->string;
-  YR_CALLBACK_FUNC callback = context->callback;
-
-  int result;
+      offset );
 
   if (data_size - offset <= 0)
     return ERROR_SUCCESS;

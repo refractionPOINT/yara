@@ -112,11 +112,12 @@ static char* get_from_cache(
 {
   CACHE_KEY key;
   YR_HASH_TABLE* hash_table = (YR_HASH_TABLE*) module_object->data;
+  char* result;
 
   key.offset = offset;
   key.length = length;
 
-  char* result = (char*) yr_hash_table_lookup_raw_key(
+  result = (char*) yr_hash_table_lookup_raw_key(
       hash_table, &key, sizeof(key), ns);
 
   YR_DEBUG_FPRINTF(
@@ -144,13 +145,15 @@ static int add_to_cache(
 
   char* copy = yr_strdup(digest);
 
+  int result;
+
   key.offset = offset;
   key.length = length;
 
   if (copy == NULL)
     return ERROR_INSUFFICIENT_MEMORY;
 
-  int result = yr_hash_table_add_raw_key(
+  result = yr_hash_table_add_raw_key(
       hash_table, &key, sizeof(key), ns, (void*) copy);
 
   YR_DEBUG_FPRINTF(
@@ -642,20 +645,20 @@ define_function(data_checksum32)
   int64_t offset = integer_argument(1);  // offset where to start
   int64_t length = integer_argument(2);  // length of bytes we want hash on
 
-  YR_DEBUG_FPRINTF(
-      2,
-      stderr,
-      "+ %s(offset=%" PRIi64 " length=%" PRIi64 ") {\n",
-      __FUNCTION__,
-      offset,
-      length);
-
   YR_SCAN_CONTEXT* context = scan_context();
   YR_MEMORY_BLOCK* block = first_memory_block(context);
   YR_MEMORY_BLOCK_ITERATOR* iterator = context->iterator;
 
   uint32_t checksum = 0;
   int past_first_block = false;
+
+  YR_DEBUG_FPRINTF(
+      2,
+      stderr,
+      "+ %s(offset=%" PRIi64 " length=%" PRIi64 ") {\n",
+      __FUNCTION__,
+      offset,
+      length );
 
   if (block == NULL)
     return_integer(YR_UNDEFINED);
@@ -740,6 +743,8 @@ define_function(data_crc32)
   YR_MEMORY_BLOCK* block = first_memory_block(context);
   YR_MEMORY_BLOCK_ITERATOR* iterator = context->iterator;
 
+  int past_first_block = false;
+
   YR_DEBUG_FPRINTF(
       2,
       stderr,
@@ -747,8 +752,6 @@ define_function(data_crc32)
       __FUNCTION__,
       offset,
       length);
-
-  int past_first_block = false;
 
   if (block == NULL)
     return_integer(YR_UNDEFINED);
@@ -844,9 +847,9 @@ int module_load(
     void* module_data,
     size_t module_data_size)
 {
-  YR_DEBUG_FPRINTF(2, stderr, "- %s() {}\n", __FUNCTION__);
-
   YR_HASH_TABLE* hash_table;
+
+  YR_DEBUG_FPRINTF( 2, stderr, "- %s() {}\n", __FUNCTION__ );
 
   FAIL_ON_ERROR(yr_hash_table_create(17, &hash_table));
 
@@ -858,9 +861,9 @@ int module_load(
 
 int module_unload(YR_OBJECT* module_object)
 {
-  YR_DEBUG_FPRINTF(2, stderr, "- %s() {}\n", __FUNCTION__);
-
   YR_HASH_TABLE* hash_table = (YR_HASH_TABLE*) module_object->data;
+
+  YR_DEBUG_FPRINTF( 2, stderr, "- %s() {}\n", __FUNCTION__ );
 
   if (hash_table != NULL)
     yr_hash_table_destroy(hash_table, (YR_HASH_TABLE_FREE_VALUE_FUNC) yr_free);

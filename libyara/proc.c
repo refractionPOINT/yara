@@ -38,12 +38,12 @@ int _yr_process_detach(YR_PROC_ITERATOR_CTX*);
 
 YR_API int yr_process_open_iterator(int pid, YR_MEMORY_BLOCK_ITERATOR* iterator)
 {
-  YR_DEBUG_FPRINTF(2, stderr, "+ %s(pid=%d) {\n", __FUNCTION__, pid);
-
   int result = ERROR_INTERNAL_FATAL_ERROR;
 
   YR_PROC_ITERATOR_CTX* context = (YR_PROC_ITERATOR_CTX*) yr_malloc(
       sizeof(YR_PROC_ITERATOR_CTX));
+
+  YR_DEBUG_FPRINTF( 2, stderr, "+ %s(pid=%d) {\n", __FUNCTION__, pid );
 
   if (context == NULL)
   {
@@ -80,9 +80,9 @@ _exit:
 
 YR_API int yr_process_close_iterator(YR_MEMORY_BLOCK_ITERATOR* iterator)
 {
-  YR_DEBUG_FPRINTF(2, stderr, "- %s() {}\n", __FUNCTION__);
-
   YR_PROC_ITERATOR_CTX* context = (YR_PROC_ITERATOR_CTX*) iterator->context;
+
+  YR_DEBUG_FPRINTF( 2, stderr, "- %s() {}\n", __FUNCTION__ );
 
   if (context != NULL)
   {

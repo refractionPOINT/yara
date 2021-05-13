@@ -73,7 +73,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;C:\openssl-1.1.0f-vs2010\include64\</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4273;4090;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4273;4090;4293;</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
       <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_LIBCRYPTO;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
@@ -92,7 +92,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;C:\openssl-1.1.0f-vs2010\include64\</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4273;4090;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4273;4090;4293;</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
       <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_LIBCRYPTO;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
@@ -111,7 +111,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;C:\openssl-1.1.0f-vs2010\include\</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4273;4090;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4273;4090;4293;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
       <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_LIBCRYPTO;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
@@ -129,7 +129,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>..\..;..\..\libyara;..\..\libyara\include;..\..\windows\include;%(AdditionalIncludeDirectories);$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;C:\openssl-1.1.0f-vs2010\include\</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4273;4090;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4273;4090;4293;4293;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <WarningLevel>Level1</WarningLevel>
       <PreprocessorDefinitions>_WIN32_WINNT=0x502;%(PreprocessorDefinitions);HAVE_MBEDTLS;YR_BUILDING_STATIC_LIB;USE_WINDOWS_PROC;HASH_MODULE;HAVE_LIBCRYPTO;NO_RPAL</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)\%(RelativeDir)\</ObjectFileName>
@@ -148,6 +148,7 @@
     <ClCompile Include="..\..\libyara\ahocorasick.c" />
     <ClCompile Include="..\..\libyara\arena.c" />
     <ClCompile Include="..\..\libyara\atoms.c" />
+    <ClCompile Include="..\..\libyara\base64.c" />
     <ClCompile Include="..\..\libyara\bitmask.c" />
     <ClCompile Include="..\..\libyara\compiler.c" />
     <ClCompile Include="..\..\libyara\endian.c" />
@@ -162,14 +163,15 @@
     <ClCompile Include="..\..\libyara\libyara.c" />
     <ClCompile Include="..\..\libyara\mem.c" />
     <ClCompile Include="..\..\libyara\modules.c" />
-    <ClCompile Include="..\..\libyara\modules\dotnet.c" />
-    <ClCompile Include="..\..\libyara\modules\elf.c" />
-    <ClCompile Include="..\..\libyara\modules\hash.c" />
-    <ClCompile Include="..\..\libyara\modules\math.c" />
-    <ClCompile Include="..\..\libyara\modules\pe.c" />
-    <ClCompile Include="..\..\libyara\modules\pe_utils.c" />
-    <ClCompile Include="..\..\libyara\modules\tests.c" />
-    <ClCompile Include="..\..\libyara\modules\time.c" />
+    <ClCompile Include="..\..\libyara\modules\dotnet\dotnet.c" />
+    <ClCompile Include="..\..\libyara\modules\elf\elf.c" />
+    <ClCompile Include="..\..\libyara\modules\hash\hash.c" />
+    <ClCompile Include="..\..\libyara\modules\math\math.c" />
+    <ClCompile Include="..\..\libyara\modules\pe\pe.c" />
+    <ClCompile Include="..\..\libyara\modules\pe\pe_utils.c" />
+    <ClCompile Include="..\..\libyara\modules\tests\tests.c" />
+    <ClCompile Include="..\..\libyara\modules\time\time.c" />
+    <ClCompile Include="..\..\libyara\notebook.c" />
     <ClCompile Include="..\..\libyara\object.c" />
     <ClCompile Include="..\..\libyara\parser.c" />
     <ClCompile Include="..\..\libyara\proc.c" />
@@ -181,6 +183,7 @@
     <ClCompile Include="..\..\libyara\scan.c" />
     <ClCompile Include="..\..\libyara\scanner.c" />
     <ClCompile Include="..\..\libyara\sizedstr.c" />
+    <ClCompile Include="..\..\libyara\stack.c" />
     <ClCompile Include="..\..\libyara\stopwatch.c" />
     <ClCompile Include="..\..\libyara\stream.c" />
     <ClCompile Include="..\..\libyara\strutils.c" />

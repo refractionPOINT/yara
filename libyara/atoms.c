@@ -430,6 +430,7 @@ int _yr_atoms_trim(YR_ATOM* atom)
   int mask_ff = 0;
 
   int trim_left = 0;
+  int i;
 
   while (trim_left < atom->length && atom->mask[trim_left] == 0) trim_left++;
 
@@ -446,7 +447,7 @@ int _yr_atoms_trim(YR_ATOM* atom)
   // number of known and unknown bytes in the atom (mask == 0xFF and
   // mask == 0x00 respectively).
 
-  for (int i = 0; i < atom->length; i++)
+  for (i = 0; i < atom->length; i++)
   {
     if (atom->mask[trim_left + i] == 0xFF)
       mask_ff++;
@@ -471,7 +472,7 @@ int _yr_atoms_trim(YR_ATOM* atom)
 
   // Shift bytes and mask trim_left positions to the left.
 
-  for (int i = 0; i < YR_MAX_ATOM_LENGTH - trim_left; i++)
+  for (i = 0; i < YR_MAX_ATOM_LENGTH - trim_left; i++)
   {
     atom->bytes[i] = atom->bytes[trim_left + i];
     atom->mask[i] = atom->mask[trim_left + i];
@@ -1479,6 +1480,7 @@ int yr_atoms_extract_from_string(
 void yr_atoms_tree_node_print(YR_ATOM_TREE_NODE* node)
 {
   YR_ATOM_TREE_NODE* child;
+  int i;
 
   if (node == NULL)
   {
@@ -1489,7 +1491,7 @@ void yr_atoms_tree_node_print(YR_ATOM_TREE_NODE* node)
   switch (node->type)
   {
   case ATOM_TREE_LEAF:
-    for (int i = 0; i < node->atom.length; i++)
+    for (i = 0; i < node->atom.length; i++)
       printf("%02X", node->atom.bytes[i]);
     break;
 

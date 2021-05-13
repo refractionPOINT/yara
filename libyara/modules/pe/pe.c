@@ -307,6 +307,8 @@ static void pe_parse_debug_directory(PE* pe)
 
   for (i = 0; i < dcount; i++)
   {
+    PCV_HEADER cv_hdr;
+
     debug_dir = (PIMAGE_DEBUG_DIRECTORY)(
         pe->data + debug_dir_offset + i * sizeof(IMAGE_DEBUG_DIRECTORY));
 
@@ -325,7 +327,7 @@ static void pe_parse_debug_directory(PE* pe)
     if (pcv_hdr_offset < 0)
       continue;
 
-    PCV_HEADER cv_hdr = (PCV_HEADER)(pe->data + pcv_hdr_offset);
+    cv_hdr = (PCV_HEADER)(pe->data + pcv_hdr_offset);
 
     if (!struct_fits_in_pe(pe, cv_hdr, CV_HEADER))
       continue;
@@ -680,6 +682,7 @@ static int pe_collect_resources(
     PE* pe)
 {
   DWORD length;
+  int64_t offset;
 
   // Don't collect too many resources.
   if (pe->resources > MAX_RESOURCES)
@@ -691,7 +694,7 @@ static int pe_collect_resources(
       "resources[%i].rva",
       pe->resources);
 
-  int64_t offset = pe_rva_to_offset(pe, yr_le32toh(rsrc_data->OffsetToData));
+  offset = pe_rva_to_offset(pe, yr_le32toh(rsrc_data->OffsetToData));
 
   if (offset < 0)
     offset = YR_UNDEFINED;
@@ -1551,6 +1554,7 @@ static void pe_parse_header(PE* pe, uint64_t base_address, int flags)
   uint64_t highest_sec_ofs = 0;
   uint64_t section_end;
   uint64_t last_section_end;
+  int i;
 
   set_integer(1, pe->object, "is_pe");
 
@@ -1744,7 +1748,7 @@ static void pe_parse_header(PE* pe, uint64_t base_address, int flags)
   ddcount = yr_le16toh(OptionalHeader(pe, NumberOfRvaAndSizes));
   ddcount = yr_min(ddcount, IMAGE_NUMBEROF_DIRECTORY_ENTRIES);
 
-  for (int i = 0; i < ddcount; i++)
+  for (i = 0; i < ddcount; i++)
   {
     if (!struct_fits_in_pe(pe, data_dir, IMAGE_DATA_DIRECTORY))
       break;
@@ -1771,7 +1775,7 @@ static void pe_parse_header(PE* pe, uint64_t base_address, int flags)
   scount = yr_min(
       yr_le16toh(pe->header->FileHeader.NumberOfSections), MAX_PE_SECTIONS);
 
-  for (int i = 0; i < scount; i++)
+  for (i = 0; i < scount; i++)
   {
     if (!struct_fits_in_pe(pe, section, IMAGE_SECTION_HEADER))
       break;
@@ -1907,10 +1911,12 @@ define_function(section_index_addr)
   int64_t addr = integer_argument(1);
   int64_t n = get_integer(module, "number_of_sections");
 
+  int i;
+
   if (is_undefined(module, "number_of_sections"))
     return_integer(YR_UNDEFINED);
 
-  for (int i = 0; i < yr_min(n, MAX_PE_SECTIONS); i++)
+  for (i = 0; i < yr_min(n, MAX_PE_SECTIONS); i++)
   {
     if (context->flags & SCAN_FLAGS_PROCESS_MEMORY)
     {
@@ -1938,10 +1944,12 @@ define_function(section_index_name)
 
   int64_t n = get_integer(module, "number_of_sections");
 
+  int i;
+
   if (is_undefined(module, "number_of_sections"))
     return_integer(YR_UNDEFINED);
 
-  for (int i = 0; i < yr_min(n, MAX_PE_SECTIONS); i++)
+  for (i = 0; i < yr_min(n, MAX_PE_SECTIONS); i++)
   {
     SIZED_STRING* sect = get_string(module, "sections[%i].name", i);
 
@@ -1960,17 +1968,20 @@ define_function(exports)
   YR_OBJECT* module = module();
   PE* pe = (PE*) module->data;
 
+  int n;
+  int i;
+
   // If not a PE, return YR_UNDEFINED.
   if (pe == NULL)
     return_integer(YR_UNDEFINED);
 
   // If PE, but no exported functions, return false.
-  int n = (int) get_integer(module, "number_of_exports");
+  n = (int) get_integer(module, "number_of_exports");
 
   if (n == 0)
     return_integer(0);
 
-  for (int i = 0; i < n; i++)
+  for (i = 0; i < n; i++)
   {
     function_name = get_string(module, "export_details[%i].name", i);
 
@@ -1992,17 +2003,20 @@ define_function(exports_regexp)
   YR_OBJECT* module = module();
   PE* pe = (PE*) module->data;
 
+  int i;
+  int n;
+
   // If not a PE, return YR_UNDEFINED.
   if (pe == NULL)
     return_integer(YR_UNDEFINED);
 
   // If PE, but no exported functions, return false.
-  int n = (int) get_integer(module, "number_of_exports");
+  n = (int) get_integer(module, "number_of_exports");
 
   if (n == 0)
     return_integer(0);
 
-  for (int i = 0; i < n; i++)
+  for (i = 0; i < n; i++)
   {
     function_name = get_string(module, "export_details[%i].name", i);
     if (function_name == NULL)
@@ -2022,12 +2036,15 @@ define_function(exports_ordinal)
   YR_OBJECT* module = module();
   PE* pe = (PE*) module->data;
 
+  int n;
+  int i;
+
   // If not a PE, return YR_UNDEFINED.
   if (pe == NULL)
     return_integer(YR_UNDEFINED);
 
   // If PE, but no exported functions, return false.
-  int n = (int) get_integer(module, "number_of_exports");
+  n = (int) get_integer(module, "number_of_exports");
 
   if (n == 0)
     return_integer(0);
@@ -2035,7 +2052,7 @@ define_function(exports_ordinal)
   if (ordinal == 0 || ordinal > n)
     return_integer(0);
 
-  for (int i = 0; i < n; i++)
+  for (i = 0; i < n; i++)
   {
     int64_t exported_ordinal = yr_object_get_integer(
         module, "export_details[%i].ordinal", i);
@@ -2055,17 +2072,20 @@ define_function(exports_index_name)
   YR_OBJECT* module = module();
   PE* pe = (PE*) module->data;
 
+  int n;
+  int i;
+
   // If not a PE, return YR_UNDEFINED.
   if (pe == NULL)
     return_integer(YR_UNDEFINED);
 
   // If PE, but no exported functions, return false.
-  int n = (int) get_integer(module, "number_of_exports");
+  n = (int) get_integer(module, "number_of_exports");
 
   if (n == 0)
     return_integer(YR_UNDEFINED);
 
-  for (int i = 0; i < n; i++)
+  for (i = 0; i < n; i++)
   {
     function_name = get_string(module, "export_details[%i].name", i);
 
@@ -2085,13 +2105,15 @@ define_function(exports_index_ordinal)
 
   YR_OBJECT* module = module();
   PE* pe = (PE*) module->data;
+  int n;
+  int i;
 
   // If not a PE, return YR_UNDEFINED.
   if (pe == NULL)
     return_integer(YR_UNDEFINED);
 
   // If PE, but no exported functions, return false.
-  int n = (int) get_integer(module, "number_of_exports");
+  n = (int) get_integer(module, "number_of_exports");
 
   if (n == 0)
     return_integer(YR_UNDEFINED);
@@ -2099,7 +2121,7 @@ define_function(exports_index_ordinal)
   if (ordinal == 0 || ordinal > n)
     return_integer(YR_UNDEFINED);
 
-  for (int i = 0; i < n; i++)
+  for (i = 0; i < n; i++)
   {
     int64_t exported_ordinal = yr_object_get_integer(
         module, "export_details[%i].ordinal", i);
@@ -2119,17 +2141,20 @@ define_function(exports_index_regex)
   YR_OBJECT* module = module();
   PE* pe = (PE*) module->data;
 
+  int n;
+  int i;
+
   // If not a PE, return YR_UNDEFINED.
   if (pe == NULL)
     return_integer(YR_UNDEFINED);
 
   // If PE, but no exported functions, return false.
-  int n = (int) get_integer(module, "number_of_exports");
+  n = (int) get_integer(module, "number_of_exports");
 
   if (n == 0)
     return_integer(YR_UNDEFINED);
 
-  for (int i = 0; i < n; i++)
+  for (i = 0; i < n; i++)
   {
     function_name = get_string(module, "export_details[%i].name", i);
     if (function_name == NULL)
@@ -2421,6 +2446,9 @@ define_function(locale)
 
   uint64_t locale = integer_argument(1);
 
+  int n;
+  int i;
+
   if (is_undefined(module, "number_of_resources"))
     return_integer(YR_UNDEFINED);
 
@@ -2429,9 +2457,9 @@ define_function(locale)
   if (pe == NULL)
     return_integer(YR_UNDEFINED);
 
-  int n = (int) get_integer(module, "number_of_resources");
+  n = (int) get_integer(module, "number_of_resources");
 
-  for (int i = 0; i < n; i++)
+  for (i = 0; i < n; i++)
   {
     uint64_t rsrc_language = get_integer(module, "resources[%i].language", i);
 
@@ -2449,6 +2477,9 @@ define_function(language)
 
   uint64_t language = integer_argument(1);
 
+  int n;
+  int i;
+
   if (is_undefined(module, "number_of_resources"))
     return_integer(YR_UNDEFINED);
 
@@ -2457,9 +2488,9 @@ define_function(language)
   if (pe == NULL)
     return_integer(YR_UNDEFINED);
 
-  int n = (int) get_integer(module, "number_of_resources");
+  n = (int) get_integer(module, "number_of_resources");
 
-  for (int i = 0; i < n; i++)
+  for (i = 0; i < n; i++)
   {
     uint64_t rsrc_language = get_integer(module, "resources[%i].language", i);
 
@@ -2521,6 +2552,8 @@ static uint64_t _rich_version(
   SIZED_STRING* rich_string;
 
   uint64_t result = 0;
+  
+  int i;
 
   // Check if the required fields are set
   if (is_undefined(module, "rich_signature.length"))
@@ -2543,7 +2576,7 @@ static uint64_t _rich_version(
   rich_count = (rich_length - sizeof(RICH_SIGNATURE)) /
                sizeof(RICH_VERSION_INFO);
 
-  for (int i = 0; i < rich_count; i++)
+  for (i = 0; i < rich_count; i++)
   {
     DWORD id_version = yr_le32toh(clear_rich_signature->versions[i].id_version);
 
@@ -2590,6 +2623,8 @@ define_function(calculate_checksum)
   uint64_t csum = 0;
   size_t csum_offset;
 
+  size_t i;
+
   if (pe == NULL)
     return_integer(YR_UNDEFINED);
 
@@ -2597,7 +2632,7 @@ define_function(calculate_checksum)
                  offsetof(IMAGE_OPTIONAL_HEADER32, CheckSum)) -
                 pe->data;
 
-  for (size_t i = 0; i <= pe->data_size / 4; i++)
+  for (i = 0; i <= pe->data_size / 4; i++)
   {
     // Treat the CheckSum field as 0 -- the offset is the same for
     // PE32 and PE64.
@@ -2614,7 +2649,8 @@ define_function(calculate_checksum)
     }
     else
     {
-      for (size_t j = 0; j < pe->data_size % 4; j++)
+      size_t j;
+      for (j = 0; j < pe->data_size % 4; j++)
         csum += (uint64_t) pe->data[4 * i + j] << (8 * j);
     }
 

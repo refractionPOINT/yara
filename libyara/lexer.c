@@ -1685,6 +1685,8 @@ YY_RULE_SETUP
     char* current_file_name;
     char* include_path;
 
+    YR_NAMESPACE* ns;
+
     *yyextra->lex_buf_ptr = '\0'; // null-terminate included file path
 
     current_file_name = yr_compiler_get_current_file_name(compiler);
@@ -1725,7 +1727,7 @@ YY_RULE_SETUP
       }
     }
 
-    YR_NAMESPACE* ns = (YR_NAMESPACE*) yr_arena_get_ptr(
+    ns = (YR_NAMESPACE*) yr_arena_get_ptr(
         compiler->arena,
         YR_NAMESPACES_TABLE,
         compiler->current_namespace_idx * sizeof(struct YR_NAMESPACE));
@@ -3445,6 +3447,7 @@ void yywarning(
   char* file_name;
   char message[512];
   va_list message_args;
+  YR_RULE* current_rule;
 
   if (compiler->callback == NULL)
     return;
@@ -3463,7 +3466,7 @@ void yywarning(
   vsnprintf( message, sizeof( message ), message_fmt, message_args );
 #endif
 
-  YR_RULE* current_rule = NULL;
+  current_rule = NULL;
 
   if (compiler->current_rule_idx != UINT32_MAX)
     current_rule = yr_arena_get_ptr(
@@ -3501,6 +3504,7 @@ void yyerror(
 {
   char message[512] = {'\0'};
   char* file_name = NULL;
+  YR_RULE* current_rule;
 
   /*
     if error_message != NULL the error comes from yyparse internal code
@@ -3526,7 +3530,7 @@ void yyerror(
     file_name = NULL;
   }
 
-  YR_RULE* current_rule = NULL;
+  current_rule = NULL;
 
   if (compiler->current_rule_idx != UINT32_MAX)
     current_rule = yr_arena_get_ptr(

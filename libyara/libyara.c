@@ -255,11 +255,12 @@ HCRYPTPROV yr_cryptprov;
 //
 YR_API int yr_initialize(void)
 {
-  YR_DEBUG_FPRINTF(2, stderr, "+ %s() {\n", __FUNCTION__);
-
   uint32_t def_stack_size = DEFAULT_STACK_SIZE;
   uint32_t def_max_strings_per_rule = DEFAULT_MAX_STRINGS_PER_RULE;
   uint32_t def_max_match_data = DEFAULT_MAX_MATCH_DATA;
+  int i;
+
+  YR_DEBUG_FPRINTF( 2, stderr, "+ %s() {\n", __FUNCTION__ );
 
   init_count++;
 
@@ -270,7 +271,7 @@ YR_API int yr_initialize(void)
   // canaries.
   srand((unsigned) time(NULL));
 
-  for (int i = 0; i < 256; i++)
+  for (i = 0; i < 256; i++)
   {
     if (i >= 'a' && i <= 'z')
       yr_altercase[i] = i - 32;

@@ -692,6 +692,8 @@ void dotnet_parse_tilde_2(
 
         for (i = 0; i < num_rows; i++)
         {
+          uint8_t str_len;
+
           if (!fits_in_pe(pe, row_ptr, row_size))
             break;
 
@@ -884,7 +886,7 @@ void dotnet_parse_tilde_2(
 
           // The next byte after the 16 bit prolog is the length of the string.
           blob_offset += 2;
-          uint8_t str_len = *blob_offset;
+          str_len = *blob_offset;
 
           // Increment blob_offset so that it points to the first byte of the
           // string.

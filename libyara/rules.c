@@ -202,6 +202,9 @@ YR_API int yr_rules_scan_mem(
     void* user_data,
     int timeout)
 {
+  YR_SCANNER* scanner;
+  int result = ERROR_INTERNAL_FATAL_ERROR;
+
   YR_DEBUG_FPRINTF(
       2,
       stderr,
@@ -209,10 +212,7 @@ YR_API int yr_rules_scan_mem(
       __FUNCTION__,
       buffer,
       buffer_size,
-      timeout);
-
-  YR_SCANNER* scanner;
-  int result = ERROR_INTERNAL_FATAL_ERROR;
+      timeout );
 
   GOTO_EXIT_ON_ERROR(yr_scanner_create(rules, &scanner));
 
@@ -292,12 +292,12 @@ YR_API int yr_rules_scan_proc(
     void* user_data,
     int timeout)
 {
-  YR_DEBUG_FPRINTF(
-      2, stderr, "+ %s(pid=%d timeout=%d) {\n", __FUNCTION__, pid, timeout);
-
   YR_MEMORY_BLOCK_ITERATOR iterator;
 
   int result = yr_process_open_iterator(pid, &iterator);
+
+  YR_DEBUG_FPRINTF(
+      2, stderr, "+ %s(pid=%d timeout=%d) {\n", __FUNCTION__, pid, timeout );
 
   if (result == ERROR_SUCCESS)
   {
@@ -326,11 +326,12 @@ YR_API int yr_rules_scan_proc(
 int yr_rules_from_arena(YR_ARENA* arena, YR_RULES** rules)
 {
   YR_RULES* new_rules = (YR_RULES*) yr_malloc(sizeof(YR_RULES));
+  YR_SUMMARY* summary;
 
   if (new_rules == NULL)
     return ERROR_INSUFFICIENT_MEMORY;
 
-  YR_SUMMARY* summary = (YR_SUMMARY*) yr_arena_get_ptr(
+  summary = (YR_SUMMARY*) yr_arena_get_ptr(
       arena, YR_SUMMARY_SECTION, 0);
 
   // Now YR_RULES relies on this arena, let's increment the arena's
@@ -434,13 +435,18 @@ static int _uint32_cmp(const void* a, const void* b)
 
 YR_API int yr_rules_get_stats(YR_RULES* rules, YR_RULES_STATS* stats)
 {
+  uint32_t* match_list_lengths;
+  float match_list_length_sum = 0;
+  int c = 0;
+  uint32_t i;
+
   memset(stats, 0, sizeof(YR_RULES_STATS));
 
   stats->ac_tables_size = yr_arena_get_current_offset(
                               rules->arena, YR_AC_TRANSITION_TABLE) /
                           sizeof(YR_AC_TRANSITION);
 
-  uint32_t* match_list_lengths = (uint32_t*) yr_malloc(
+  match_list_lengths = (uint32_t*) yr_malloc(
       sizeof(uint32_t) * stats->ac_tables_size);
 
   if (match_list_lengths == NULL)
@@ -449,10 +455,7 @@ YR_API int yr_rules_get_stats(YR_RULES* rules, YR_RULES_STATS* stats)
   stats->num_rules = rules->num_rules;
   stats->num_strings = rules->num_strings;
 
-  float match_list_length_sum = 0;
-  int c = 0;
-
-  for (uint32_t i = 0; i < stats->ac_tables_size; i++)
+  for (i = 0; i < stats->ac_tables_size; i++)
   {
     int match_list_length = 0;
 
@@ -489,7 +492,7 @@ YR_API int yr_rules_get_stats(YR_RULES* rules, YR_RULES_STATS* stats)
   // sort match_list_lengths in increasing order for computing percentiles.
   qsort(match_list_lengths, c, sizeof(match_list_lengths[0]), _uint32_cmp);
 
-  for (int i = 0; i < 100; i++)
+  for (i = 0; i < 100; i++)
   {
     if (i < c)
       stats->top_ac_match_list_lengths[i] = match_list_lengths[c - i - 1];
@@ -501,7 +504,7 @@ YR_API int yr_rules_get_stats(YR_RULES* rules, YR_RULES_STATS* stats)
   stats->ac_match_list_length_pctls[0] = match_list_lengths[0];
   stats->ac_match_list_length_pctls[100] = match_list_lengths[c - 1];
 
-  for (int i = 1; i < 100; i++)
+  for (i = 1; i < 100; i++)
     stats->ac_match_list_length_pctls[i] = match_list_lengths[(c * i) / 100];
 
   yr_free(match_list_lengths);

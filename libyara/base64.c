@@ -182,8 +182,9 @@ static SIZED_STRING* _yr_base64_get_base64_substring(
 static int _yr_base64_count_escaped(SIZED_STRING* str)
 {
   int c = 0;
+  uint32_t i;
 
-  for (uint32_t i = 0; i < str->length; i++)
+  for (i = 0; i < str->length; i++)
   {
     // We must be careful to escape null bytes because they break the RE lexer.
     if (IS_METACHAR(str->c_string[i]))
@@ -210,8 +211,9 @@ static int _yr_base64_create_nodes(
   BASE64_NODE* node;
 
   int pad;
+  int i;
 
-  for (int i = 0; i <= 2; i++)
+  for (i = 0; i <= 2; i++)
   {
     if (i == 1 && str->length == 1)
       continue;
@@ -265,7 +267,9 @@ void _yr_base64_print_nodes(BASE64_NODE* head)
 
   while (p != NULL)
   {
-    for (size_t i = 0; i < p->str->length; i++)
+    size_t i;
+
+    for (i = 0; i < p->str->length; i++)
     {
       if (p->str->c_string[i] >= 32 && p->str->c_string[i] <= 126)
         printf("%c", p->str->c_string[i]);
@@ -333,7 +337,9 @@ int _yr_base64_create_regexp(
   *s++ = '(';
   while (p != NULL)
   {
-    for (uint32_t i = 0; i < p->str->length; i++)
+    uint32_t i;
+
+    for (i = 0; i < p->str->length; i++)
     {
       if (IS_METACHAR(p->str->c_string[i]))
         *s++ = '\\';

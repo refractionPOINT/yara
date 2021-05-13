@@ -140,6 +140,8 @@ int yr_notebook_destroy(YR_NOTEBOOK* notebook)
 //
 void* yr_notebook_alloc(YR_NOTEBOOK* notebook, size_t size)
 {
+  void* ptr;
+
   // The requested memory size can't be larger than a notebook's page.
   assert(size <= notebook->page_size);
 
@@ -158,7 +160,7 @@ void* yr_notebook_alloc(YR_NOTEBOOK* notebook, size_t size)
     notebook->page_list_head = new_page;
   }
 
-  void* ptr = notebook->page_list_head->data + notebook->page_list_head->used;
+  ptr = notebook->page_list_head->data + notebook->page_list_head->used;
 
 // In ARM make sure the alignment of the returned buffer is 4 bytes.
 #if defined(__arm__)

@@ -46,15 +46,6 @@ static int _yr_scanner_scan_mem_block(
     const uint8_t* block_data,
     YR_MEMORY_BLOCK* block)
 {
-  YR_DEBUG_FPRINTF(
-      2,
-      stderr,
-      "+ %s(block_data=%p block->base=0x%" PRIx64 " block->size=%zu) {\n",
-      __FUNCTION__,
-      block_data,
-      block->base,
-      block->size);
-
   int result = ERROR_SUCCESS;
 
   YR_RULES* rules = scanner->rules;
@@ -67,6 +58,15 @@ static int _yr_scanner_scan_mem_block(
   size_t i = 0;
   uint32_t state = YR_AC_ROOT_STATE;
   uint16_t index;
+
+  YR_DEBUG_FPRINTF(
+      2,
+      stderr,
+      "+ %s(block_data=%p block->base=0x%" PRIx64 " block->size=%zu) {\n",
+      __FUNCTION__,
+      block_data,
+      block->base,
+      block->size );
 
   while (i < block->size)
   {
@@ -198,10 +198,10 @@ static void _yr_scanner_clean_matches(YR_SCANNER* scanner)
 
 YR_API int yr_scanner_create(YR_RULES* rules, YR_SCANNER** scanner)
 {
-  YR_DEBUG_FPRINTF(2, stderr, "- %s() {} \n", __FUNCTION__);
-
   YR_EXTERNAL_VARIABLE* external;
   YR_SCANNER* new_scanner;
+
+  YR_DEBUG_FPRINTF( 2, stderr, "- %s() {} \n", __FUNCTION__ );
 
   new_scanner = (YR_SCANNER*) yr_calloc(1, sizeof(YR_SCANNER));
 
@@ -277,10 +277,10 @@ YR_API int yr_scanner_create(YR_RULES* rules, YR_SCANNER** scanner)
 
 YR_API void yr_scanner_destroy(YR_SCANNER* scanner)
 {
-  YR_DEBUG_FPRINTF(2, stderr, "- %s() {} \n", __FUNCTION__);
-
   RE_FIBER* fiber;
   RE_FIBER* next_fiber;
+
+  YR_DEBUG_FPRINTF( 2, stderr, "- %s() {} \n", __FUNCTION__ );
 
   fiber = scanner->re_fiber_pool.fibers.head;
 
@@ -402,13 +402,13 @@ YR_API int yr_scanner_scan_mem_blocks(
     YR_SCANNER* scanner,
     YR_MEMORY_BLOCK_ITERATOR* iterator)
 {
-  YR_DEBUG_FPRINTF(2, stderr, "+ %s() {\n", __FUNCTION__);
-
   YR_RULES* rules;
   YR_RULE* rule;
   YR_MEMORY_BLOCK* block;
 
   int i, result = ERROR_SUCCESS;
+
+  YR_DEBUG_FPRINTF( 2, stderr, "+ %s() {\n", __FUNCTION__ );
 
   if (scanner->callback == NULL)
   {
@@ -619,16 +619,17 @@ YR_API int yr_scanner_scan_mem(
     const uint8_t* buffer,
     size_t buffer_size)
 {
+  YR_MEMORY_BLOCK block;
+  YR_MEMORY_BLOCK_ITERATOR iterator;
+  int result;
+
   YR_DEBUG_FPRINTF(
       2,
       stderr,
       "+ %s(buffer=%p buffer_size=%zu) {\n",
       __FUNCTION__,
       buffer,
-      buffer_size);
-
-  YR_MEMORY_BLOCK block;
-  YR_MEMORY_BLOCK_ITERATOR iterator;
+      buffer_size );
 
   block.size = buffer_size;
   block.base = 0;
@@ -641,7 +642,7 @@ YR_API int yr_scanner_scan_mem(
   iterator.file_size = _yr_get_file_size;
   iterator.last_error = ERROR_SUCCESS;
 
-  int result = yr_scanner_scan_mem_blocks(scanner, &iterator);
+  result = yr_scanner_scan_mem_blocks(scanner, &iterator);
 
   YR_DEBUG_FPRINTF(
       2,
@@ -745,10 +746,12 @@ YR_API YR_RULE_PROFILING_INFO* yr_scanner_get_profiling_info(
   YR_RULE_PROFILING_INFO* profiling_info = yr_malloc(
       (scanner->rules->num_rules + 1) * sizeof(YR_RULE_PROFILING_INFO));
 
+  uint32_t i;
+
   if (profiling_info == NULL)
     return NULL;
 
-  for (uint32_t i = 0; i < scanner->rules->num_rules; i++)
+  for (i = 0; i < scanner->rules->num_rules; i++)
   {
     profiling_info[i].rule = &scanner->rules->rules_table[i];
 #ifdef YR_PROFILING_ENABLED
@@ -785,14 +788,13 @@ YR_API void yr_scanner_reset_profiling_info(YR_SCANNER* scanner)
 
 YR_API int yr_scanner_print_profiling_info(YR_SCANNER* scanner)
 {
-  printf("\n===== PROFILING INFORMATION =====\n\n");
-
   YR_RULE_PROFILING_INFO* info = yr_scanner_get_profiling_info(scanner);
+  YR_RULE_PROFILING_INFO* rpi = info;
+
+  printf( "\n===== PROFILING INFORMATION =====\n\n" );
 
   if (info == NULL)
     return ERROR_INSUFFICIENT_MEMORY;
-
-  YR_RULE_PROFILING_INFO* rpi = info;
 
   while (rpi->rule != NULL)
   {
