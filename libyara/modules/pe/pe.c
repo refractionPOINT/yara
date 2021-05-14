@@ -2979,7 +2979,7 @@ int module_initialize(YR_MODULE* module)
 #if defined(HAVE_LIBCRYPTO)
   // Not checking return value here because if it fails we will not parse the
   // nested signature silently.
-  OBJ_create(SPC_NESTED_SIGNATURE_OBJID, NULL, NULL);
+  OBJ_create(SPC_NESTED_SIGNATURE_OBJID, "", "");
 #endif
   return ERROR_SUCCESS;
 }
