@@ -2052,6 +2052,7 @@ int yr_re_fast_exec(
 
     while (!stop)
     {
+      int i;
       if (*ip == RE_OPCODE_MATCH)
       {
         if (flags & RE_FLAGS_EXHAUSTIVE)
@@ -2132,7 +2133,7 @@ int yr_re_fast_exec(
         repeat_any_args = (RE_REPEAT_ANY_ARGS*) (ip + 1);
         next_opcode = ip + 1 + sizeof(RE_REPEAT_ANY_ARGS);
 
-        for (int i = repeat_any_args->min + 1; i <= repeat_any_args->max; i++)
+        for (i = repeat_any_args->min + 1; i <= repeat_any_args->max; i++)
         {
           if (bytes_matched + i >= max_bytes_matched)
             break;
