@@ -40,6 +40,7 @@ def BuildLibYara( target, source, env ):
         aboutCrypto = '--without-crypto'
     else:
         aboutCrypto = '--with-crypto'
+        target_host += ' CFLAGS="-I/usr/local/ssl/include -fPIC" LDFLAGS="-L/usr/local/ssl/lib"'
 
     run( './bootstrap.sh' )
     run( './configure --enable-static --disable-shared %s --disable-cuckoo%s' % ( aboutCrypto, target_host, ) )
