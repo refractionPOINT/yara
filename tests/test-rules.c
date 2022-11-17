@@ -631,6 +631,28 @@ static void test_strings()
        }",
       "foobarbaz" TEXT_1024_BYTES);
 
+  // https://github.com/VirusTotal/yara/issues/1695
+  assert_false_rule(
+      "rule test {\n\
+         strings:\n\
+             $a = \"AXS\"\n\
+             $b = \"ERS\"\n\
+         condition:\n\
+             none of them in (0..10)\n\
+       }",
+      "AXSERS" TEXT_1024_BYTES);
+
+  // https://github.com/VirusTotal/yara/issues/1757
+  assert_false_rule(
+      "rule test {\n\
+         strings:\n\
+             $a = \"foo\"\n\
+             $b = \"foo\"\n\
+         condition:\n\
+             none of them in (0..1)\n\
+       }",
+      "foo");
+
   // https://github.com/VirusTotal/yara/issues/1660
   assert_false_rule(
       "rule test {\n\
@@ -1724,6 +1746,28 @@ static void test_of()
        }",
       "mississippi");
 
+  // If one of the bounds can not be determined statically it isn't an error.
+  assert_true_rule(
+      "rule test { \
+      strings: \
+        $a = \"AXSERS\" \
+      condition: \
+        true or any of them in (0..filesize-100) \
+    }",
+      TEXT_1024_BYTES);
+
+  // Make sure that an undefined range boundary returns an undefined value,
+  // which translates to false.
+  assert_false_rule(
+      "import \"tests\" \
+        rule test { \
+		      strings: \
+			      $a = \"missi\" \
+		      condition: \
+			      any of them in (0..tests.undefined.i) \
+	    }",
+      "mississippi");
+
   YR_DEBUG_FPRINTF(1, stderr, "} // %s()\n", __FUNCTION__);
 }
 
@@ -1951,6 +1995,16 @@ void test_for()
         ) \
       }",
       NULL);
+
+  // Test case for https://github.com/VirusTotal/yara/issues/1729
+  assert_true_rule(
+      "rule test { \
+        strings: \
+          $a = \"abcde\" \
+        condition: \
+          for any n in (1..10) : ( n of ($a*) ) \
+      }",
+      "abcde");
 
   YR_DEBUG_FPRINTF(1, stderr, "} // %s()\n", __FUNCTION__);
 }
@@ -2212,6 +2266,11 @@ void test_re()
   assert_true_regexp("a[\\-b]", "ab", "ab");
   assert_true_regexp("a]", "a]", "a]");
   assert_true_regexp("a[]]b", "a]b", "a]b");
+  assert_true_regexp("[a-z]-b", "c-b-c", "c-b");  // Issue #1690
+  assert_true_regexp("a[]-]b", "a]b", "a]b");
+  assert_true_regexp("a[]-]b", "a-b", "a-b");
+  assert_true_regexp("[\\.-z]*", "...abc", "...abc");
+  assert_true_regexp("[\\.-]*", "...abc", "...");
   assert_true_regexp("a[\\]]b", "a]b", "a]b");
   assert_true_regexp("a[^bc]d", "aed", "aed");
   assert_false_regexp("a[^bc]d", "abd");
