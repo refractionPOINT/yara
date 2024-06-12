@@ -20,6 +20,10 @@ if ( CLOCK_TARGET_IS_LINUX )
     LIST(APPEND sources ${CMAKE_CURRENT_SOURCE_DIR}/libyara/proc/linux.c)
 endif()
 
+if ( CLOCK_TARGET_IS_MACOS )
+    LIST(APPEND sources ${CMAKE_CURRENT_SOURCE_DIR}/libyara/proc/mach.c)
+endif()
+
 if ( CLOCK_TARGET_IS_WINDOWS )
     LIST(APPEND sources ${CMAKE_CURRENT_SOURCE_DIR}/libyara/proc/windows.c)
 endif()
@@ -34,6 +38,10 @@ target_link_libraries(yara-static
 
 if ( CLOCK_TARGET_IS_LINUX )
     target_compile_definitions(yara-static PRIVATE USE_LINUX_PROC)
+endif()
+
+if ( CLOCK_TARGET_IS_MACOS )
+    target_compile_definitions(yara-static PRIVATE USE_MACH_PROC)
 endif()
 
 if ( CLOCK_TARGET_IS_WINDOWS )
