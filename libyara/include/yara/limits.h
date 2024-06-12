@@ -33,7 +33,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #if defined(_WIN32) || defined(__CYGWIN__)
 #include <windows.h>
 // Bridge definitions for Visual Studio 2013.
-#define LLONG_MAX 9223372036854775807LL
+  #ifndef _WIN32_WINNT_WIN10
+    #define LLONG_MAX 9223372036854775807LL
+  #endif
 #endif
 
 #include "utils.h"
