@@ -62,4 +62,6 @@ if ( CLOCK_TARGET_IS_WINDOWS )
     target_compile_options(yara-static PRIVATE "/wd4200") # warning C4200: nonstandard extension used: zero-sized array in struct/union
     target_compile_options(yara-static PRIVATE "/wd4130") # warning C4130: '==': logical operation on address of string constant
     target_compile_options(yara-static PRIVATE "/wd4211") # warning C4211: nonstandard extension used: redefined extern to static
+    target_compile_options(yara-static PRIVATE "/wd4310") # warning C4310: cast truncates constant value
+    target_compile_options(yara-static PRIVATE "/wd4305") # warning C4305: 'type cast': truncation from '__int64' to 'char *'
 endif()
