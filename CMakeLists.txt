@@ -42,6 +42,7 @@ endif()
 
 if ( CLOCK_TARGET_IS_MACOS )
     target_compile_definitions(yara-static PRIVATE USE_MACH_PROC)
+    target_compile_options(yara-static     PRIVATE "-Wno-deprecated-declarations")
 endif()
 
 if ( CLOCK_TARGET_IS_WINDOWS )
