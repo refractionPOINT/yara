@@ -38,6 +38,7 @@ target_link_libraries(yara-static
 
 if ( CLOCK_TARGET_IS_LINUX )
     target_compile_definitions(yara-static PRIVATE USE_LINUX_PROC)
+    target_compile_options(yara-static PRIVATE "-Wno-tautological-constant-out-of-range-compare")
 endif()
 
 if ( CLOCK_TARGET_IS_MACOS )
