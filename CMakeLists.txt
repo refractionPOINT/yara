@@ -38,15 +38,18 @@ target_link_libraries(yara-static
 
 if ( CLOCK_TARGET_IS_LINUX )
     target_compile_definitions(yara-static PRIVATE USE_LINUX_PROC)
-    target_compile_options(yara-static PRIVATE "-Wno-tautological-constant-out-of-range-compare")
 endif()
 
 if ( CLOCK_TARGET_IS_MACOS )
     target_compile_definitions(yara-static PRIVATE USE_MACH_PROC)
+endif()
+
+if ( CLOCK_COMPILER_IS_CLANG )
+    target_compile_options(yara-static PRIVATE "-Wno-tautological-constant-out-of-range-compare")
     target_compile_options(yara-static     PRIVATE "-Wno-deprecated-declarations")
 endif()
 
-if ( CLOCK_TARGET_IS_WINDOWS )
+if ( CLOCK_COMPILER_IS_MSVC )
     target_compile_definitions(yara-static PRIVATE USE_WINDOWS_PROC)
     target_compile_options(yara-static PRIVATE "/wd4244") # warning C4244: '=': conversion from 'uint32_t' to 'uint8_t', possible loss of data
     target_compile_options(yara-static PRIVATE "/wd4324") # warning C4324: '_YR_COMPILER': structure was padded due to alignment specifier
