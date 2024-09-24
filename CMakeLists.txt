@@ -70,3 +70,7 @@ if ( CLOCK_COMPILER_IS_MSVC )
     target_compile_options(yara-static PRIVATE "/wd4310") # warning C4310: cast truncates constant value
     target_compile_options(yara-static PRIVATE "/wd4305") # warning C4305: 'type cast': truncation from '__int64' to 'char *'
 endif()
+
+if ( CLOCK_COMPILER_IS_GCC )
+    target_compile_options(yara-static PRIVATE "-Wno-stringop-overflow")
+endif()
