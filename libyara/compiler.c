@@ -35,6 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/stat.h>
 
 #ifdef _MSC_VER
+#define read _read
 #include <io.h>
 #include <share.h>
 #else
