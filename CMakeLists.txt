@@ -75,4 +75,5 @@ endif()
 
 if ( CLOCK_COMPILER_IS_GCC )
     target_compile_options(yara-static PRIVATE "-Wno-stringop-overflow")
+    target_compile_options(yara-static PRIVATE "-Wno-nonnull-compare")
 endif()
