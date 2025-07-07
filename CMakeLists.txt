@@ -33,7 +33,6 @@ add_library(yara-static STATIC ${sources})
 target_link_libraries(yara-static
     PUBLIC  yara-interface
     PRIVATE yara-private-interface
-    PRIVATE sensor-interface
 )
 
 if ( CLOCK_TARGET_IS_LINUX )
