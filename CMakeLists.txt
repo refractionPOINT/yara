@@ -35,6 +35,10 @@ target_link_libraries(yara-static
     PRIVATE yara-private-interface
 )
 
+if ( CLOCK_TARGET_IS_WINDOWS )
+    target_compile_definitions(yara-static PRIVATE USE_WINDOWS_PROC)
+endif()
+
 if ( CLOCK_TARGET_IS_LINUX )
     target_compile_definitions(yara-static PRIVATE USE_LINUX_PROC)
 endif()
@@ -51,7 +55,6 @@ if ( CLOCK_COMPILER_IS_CLANG )
 endif()
 
 if ( CLOCK_COMPILER_IS_MSVC )
-    target_compile_definitions(yara-static PRIVATE USE_WINDOWS_PROC)
     target_compile_options(yara-static PRIVATE "/wd4244") # warning C4244: '=': conversion from 'uint32_t' to 'uint8_t', possible loss of data
     target_compile_options(yara-static PRIVATE "/wd4324") # warning C4324: '_YR_COMPILER': structure was padded due to alignment specifier
     target_compile_options(yara-static PRIVATE "/wd4702") # warning C4702: unreachable code
