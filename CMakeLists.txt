@@ -51,6 +51,8 @@ if ( CLOCK_COMPILER_IS_CLANG )
     target_compile_options(yara-static  PRIVATE "-Wno-tautological-constant-out-of-range-compare")
     target_compile_options(yara-static  PRIVATE "-Wno-deprecated-declarations")
     target_compile_options(yara-static  PRIVATE "-Wno-tautological-pointer-compare")
+    target_compile_options(yara-static  PRIVATE "-Wno-unused-function")
+    target_compile_options(yara-static  PRIVATE "-Wno-unused-but-set-variable")
 
 endif()
 
